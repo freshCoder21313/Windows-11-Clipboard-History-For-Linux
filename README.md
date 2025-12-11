@@ -32,11 +32,14 @@ Built with 🦀 Rust + ⚡ Tauri v2 + ⚛️ React + 🎨 Tailwind CSS
 - 💨 **System Tray** - Runs silently in the background
 - 🐧 **Wayland & X11** - Works on both display servers
 
-## 📦 Installation
+## 🐧 Installation (For Users)
 
-### Quick Start (Recommended)
+### The easiest way to get started (Recommended)
 
-The easiest way to get started:
+> Download the latest release from GitHub and follow the installation instructions for your distribution in [RELEASES](https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux/releases)
+
+
+## 📦 Installation (For devs)
 
 ```bash
 # Clone the repository
