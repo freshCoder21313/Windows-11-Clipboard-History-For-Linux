@@ -42,6 +42,11 @@ body {
   -webkit-app-region: drag;
 }
 
+/* Allow interaction with elements inside drag regions */
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Disable text selection */
 .no-select {
   -webkit-user-select: none;

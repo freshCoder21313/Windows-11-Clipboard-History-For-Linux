@@ -5,7 +5,10 @@ import { ClipboardList } from 'lucide-react'
  */
 export function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full py-12 px-4 text-center">
+    <div
+      className="flex flex-col items-center justify-center h-full py-12 px-4 text-center"
+      data-tauri-drag-region
+    >
       <div className="w-16 h-16 rounded-full dark:bg-win11-bg-tertiary bg-win11Light-bg-tertiary flex items-center justify-center mb-4">
         <ClipboardList className="w-8 h-8 dark:text-win11-text-tertiary text-win11Light-text-secondary" />
       </div>

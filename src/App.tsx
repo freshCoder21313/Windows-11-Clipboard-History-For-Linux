@@ -6,6 +6,7 @@ import { HistoryItem } from './components/HistoryItem'
 import { TabBar } from './components/TabBar'
 import { Header } from './components/Header'
 import { EmptyState } from './components/EmptyState'
+import { DragHandle } from './components/DragHandle'
 import type { ActiveTab } from './types/clipboard'
 
 /**
@@ -91,6 +92,9 @@ function App() {
         isDark ? 'text-win11-text-primary' : 'text-win11Light-text-primary'
       )}
     >
+      {/* Drag Handle */}
+      <DragHandle />
+
       {/* Header with title and actions */}
       <Header onClearHistory={clearHistory} itemCount={history.filter((i) => !i.pinned).length} />
 

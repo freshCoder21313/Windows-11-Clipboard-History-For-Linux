@@ -29,6 +29,7 @@ export function Header({ onClearHistory, itemCount }: HeaderProps) {
           onClick={onClearHistory}
           disabled={itemCount === 0}
           className={clsx(
+            'no-drag',
             'p-2 rounded-md transition-colors',
             'dark:text-win11-text-secondary text-win11Light-text-secondary',
             'hover:dark:bg-win11-bg-tertiary hover:bg-win11Light-bg-tertiary',
@@ -42,6 +43,7 @@ export function Header({ onClearHistory, itemCount }: HeaderProps) {
         {/* Settings button (placeholder for future) */}
         <button
           className={clsx(
+            'no-drag',
             'p-2 rounded-md transition-colors',
             'dark:text-win11-text-secondary text-win11Light-text-secondary',
             'hover:dark:bg-win11-bg-tertiary hover:bg-win11Light-bg-tertiary'

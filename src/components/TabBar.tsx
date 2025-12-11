@@ -18,7 +18,10 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
   ]
 
   return (
-    <div className="flex items-center gap-1 p-2 border-b dark:border-win11-border-subtle border-win11Light-border">
+    <div
+      className="flex items-center gap-1 p-2 border-b dark:border-win11-border-subtle border-win11Light-border"
+      data-tauri-drag-region
+    >
       {tabs.map((tab) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id
@@ -28,6 +31,7 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={clsx(
+              'no-drag',
               'flex items-center justify-center gap-2 px-4 py-2 rounded-md',
               'text-sm font-medium transition-all duration-150',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent',
