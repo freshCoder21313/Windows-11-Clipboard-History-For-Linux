@@ -365,12 +365,6 @@ impl ClipboardManager {
     }
 }
 
-
-
-
-
-
-
 impl Default for ClipboardManager {
     fn default() -> Self {
         Self::new()
