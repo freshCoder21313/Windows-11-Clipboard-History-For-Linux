@@ -103,11 +103,12 @@ case "$DISTRO" in
 #!/bin/bash
 # Wrapper script for win11-clipboard-history AppImage
 # Cleans environment to avoid Snap/GTK library conflicts
+# Forces X11/XWayland for better window positioning support
 
 APPIMAGE="$HOME/.local/lib/win11-clipboard-history/win11-clipboard-history.AppImage"
 
 # Always use clean environment to avoid library conflicts
-# Snap and other containerized apps can pollute GTK_PATH, LD_LIBRARY_PATH, etc.
+# GDK_BACKEND=x11 forces XWayland on Wayland sessions for window positioning
 exec env -i \
     HOME="$HOME" \
     USER="$USER" \
@@ -120,6 +121,7 @@ exec env -i \
     DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
     PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin" \
     LANG="${LANG:-en_US.UTF-8}" \
+    GDK_BACKEND="x11" \
     "$APPIMAGE" "$@"
 WRAPPER
         chmod +x "$INSTALL_DIR/win11-clipboard-history"

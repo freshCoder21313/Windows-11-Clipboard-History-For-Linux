@@ -74,29 +74,42 @@ async fn paste_item(app: AppHandle, state: State<'_, AppState>, id: String) -> R
 fn show_window_at_cursor(window: &WebviewWindow) {
     use tauri::{PhysicalPosition, PhysicalSize};
 
-    // Get cursor position - fallback to center if not available
-    let cursor_pos = window
-        .cursor_position()
-        .unwrap_or_else(|_| PhysicalPosition::new(100.0, 100.0));
+    // Try to get cursor position - this may fail on Wayland
+    let cursor_result = window.cursor_position();
+    
+    match cursor_result {
+        Ok(cursor_pos) => {
+            // X11 or XWayland - we can position at cursor
+            if let Ok(Some(monitor)) = window.current_monitor() {
+                let monitor_size = monitor.size();
+                let window_size = window.outer_size().unwrap_or(PhysicalSize::new(360, 480));
 
-    // Get monitor info for bounds checking
-    if let Ok(Some(monitor)) = window.current_monitor() {
-        let monitor_size = monitor.size();
-        let window_size = window.outer_size().unwrap_or(PhysicalSize::new(360, 480));
+                // Calculate position, keeping window within screen bounds
+                let mut x = cursor_pos.x as i32;
+                let mut y = cursor_pos.y as i32;
 
-        // Calculate position, keeping window within screen bounds
-        let mut x = cursor_pos.x as i32;
-        let mut y = cursor_pos.y as i32;
+                // Adjust if window would go off-screen
+                if x + window_size.width as i32 > monitor_size.width as i32 {
+                    x = monitor_size.width as i32 - window_size.width as i32 - 10;
+                }
+                if y + window_size.height as i32 > monitor_size.height as i32 {
+                    y = monitor_size.height as i32 - window_size.height as i32 - 10;
+                }
 
-        // Adjust if window would go off-screen
-        if x + window_size.width as i32 > monitor_size.width as i32 {
-            x = monitor_size.width as i32 - window_size.width as i32 - 10;
+                if let Err(e) = window.set_position(PhysicalPosition::new(x, y)) {
+                    eprintln!("Failed to set window position: {:?}", e);
+                    // Fallback to center
+                    let _ = window.center();
+                }
+            }
         }
-        if y + window_size.height as i32 > monitor_size.height as i32 {
-            y = monitor_size.height as i32 - window_size.height as i32 - 10;
+        Err(e) => {
+            // Wayland - cursor position not available, center the window instead
+            eprintln!("Cursor position not available (Wayland?): {:?}", e);
+            if let Err(center_err) = window.center() {
+                eprintln!("Failed to center window: {:?}", center_err);
+            }
         }
-
-        let _ = window.set_position(PhysicalPosition::new(x, y));
     }
 
     let _ = window.show();

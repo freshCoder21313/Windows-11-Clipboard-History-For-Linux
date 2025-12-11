@@ -26,36 +26,30 @@ if [ -f "$BINARY_PATH" ] && [ ! -L "$BINARY_PATH" ]; then
 #!/bin/bash
 # Wrapper script for win11-clipboard-history
 # Cleans environment to avoid Snap library conflicts
+# Forces X11/XWayland for better window positioning support
 
 BINARY="/usr/lib/win11-clipboard-history/win11-clipboard-history-bin"
 
-# Check for Snap-polluted environment (VS Code Snap, etc.)
-if [[ -n "$SNAP" ]] || \
-   [[ "$LD_LIBRARY_PATH" == */snap/* ]] || \
-   [[ "$GTK_PATH" == */snap/* ]] || \
-   [[ "$GIO_MODULE_DIR" == */snap/* ]] || \
-   [[ -n "$GTK_EXE_PREFIX" && "$GTK_EXE_PREFIX" == */snap/* ]]; then
-    
-    exec env -i \
-        HOME="$HOME" \
-        USER="$USER" \
-        SHELL="$SHELL" \
-        TERM="$TERM" \
-        DISPLAY="${DISPLAY:-:0}" \
-        XAUTHORITY="$XAUTHORITY" \
-        WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
-        XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-        XDG_SESSION_TYPE="$XDG_SESSION_TYPE" \
-        XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \
-        XDG_SESSION_CLASS="$XDG_SESSION_CLASS" \
-        DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
-        PATH="/usr/local/bin:/usr/bin:/bin" \
-        LANG="${LANG:-en_US.UTF-8}" \
-        LC_ALL="${LC_ALL:-}" \
-        "$BINARY" "$@"
-else
-    exec "$BINARY" "$@"
-fi
+# Always use clean environment to avoid library conflicts
+# GDK_BACKEND=x11 forces XWayland on Wayland sessions for window positioning
+exec env -i \
+    HOME="$HOME" \
+    USER="$USER" \
+    SHELL="$SHELL" \
+    TERM="$TERM" \
+    DISPLAY="${DISPLAY:-:0}" \
+    XAUTHORITY="$XAUTHORITY" \
+    WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
+    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+    XDG_SESSION_TYPE="$XDG_SESSION_TYPE" \
+    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \
+    XDG_SESSION_CLASS="$XDG_SESSION_CLASS" \
+    DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
+    PATH="/usr/local/bin:/usr/bin:/bin" \
+    LANG="${LANG:-en_US.UTF-8}" \
+    LC_ALL="${LC_ALL:-}" \
+    GDK_BACKEND="x11" \
+    "$BINARY" "$@"
 WRAPPER
     chmod +x "$BINARY_PATH"
     echo -e "${GREEN}✓${NC} Created wrapper script for Snap compatibility"
