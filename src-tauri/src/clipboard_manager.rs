@@ -315,6 +315,18 @@ impl ClipboardManager {
         }
     }
 
+    /// Mark a specific text as pasted (to prevent it from appearing in history)
+    /// Used for emojis which should not pollute clipboard history
+    pub fn mark_text_as_pasted(&mut self, text: &str) {
+        self.last_pasted_text = Some(text.to_string());
+        // Also update the hash to prevent duplicate detection
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        text.hash(&mut hasher);
+        self.last_added_text_hash = Some(hasher.finish());
+    }
+
     /// Paste an item (write to clipboard and simulate Ctrl+V)
     pub fn paste_item(&mut self, item: &ClipboardItem) -> Result<(), String> {
         // Mark as pasted BEFORE writing to clipboard to avoid duplicate detection

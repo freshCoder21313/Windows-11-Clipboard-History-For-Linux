@@ -91,6 +91,15 @@ body {
       background: rgba(0, 0, 0, 0.35);
     }
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Glassmorphism / Acrylic effect */

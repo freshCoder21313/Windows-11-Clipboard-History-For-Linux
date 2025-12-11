@@ -8,6 +8,7 @@ import { TabBar } from './components/TabBar'
 import { Header } from './components/Header'
 import { EmptyState } from './components/EmptyState'
 import { DragHandle } from './components/DragHandle'
+import { EmojiPicker } from './components/EmojiPicker'
 import type { ActiveTab } from './types/clipboard'
 
 /**
@@ -83,13 +84,7 @@ function App() {
         )
 
       case 'emoji':
-        return (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-4 text-center">
-            <p className="text-sm dark:text-win11-text-secondary text-win11Light-text-secondary">
-              Emoji picker coming soon! 😊
-            </p>
-          </div>
-        )
+        return <EmojiPicker />
 
       default:
         return null

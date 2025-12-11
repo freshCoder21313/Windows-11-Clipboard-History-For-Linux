@@ -76,10 +76,30 @@ export function useClipboardHistory() {
     const setupListeners = async () => {
       unlistenChanged = await listen<ClipboardItem>('clipboard-changed', (event) => {
         setHistory((prev) => {
+          const newItem = event.payload
+
+          // Check if item already exists by id
+          if (prev.some((i) => i.id === newItem.id)) {
+            return prev
+          }
+
+          // Also check for content duplicates in the first few unpinned items
+          // This handles race conditions between fetchHistory and events
+          const unpinnedItems = prev.filter((i) => !i.pinned)
+          const isDuplicate = unpinnedItems.slice(0, 5).some((i) => {
+            if (i.content.type === 'text' && newItem.content.type === 'text') {
+              return i.content.text === newItem.content.text
+            }
+            return false
+          })
+
+          if (isDuplicate) {
+            return prev
+          }
+
           // Add new item at the top (after pinned items)
           const pinnedItems = prev.filter((i) => i.pinned)
-          const unpinnedItems = prev.filter((i) => !i.pinned)
-          return [...pinnedItems, event.payload, ...unpinnedItems.slice(0, 49)]
+          return [...pinnedItems, newItem, ...unpinnedItems.slice(0, 49)]
         })
       })
 

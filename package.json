@@ -3,8 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "A Windows 11-style Clipboard History Manager for Linux built with Tauri v2",
-  "author": "Your Name",
+  "description": "A Windows 11-style Clipboard History Manager for Linux built with Tauri",
+  "author": "gustavosett",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -32,14 +32,18 @@
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
     "clsx": "^2.1.0",
+    "emojilib": "^4.0.2",
+    "fuse.js": "^7.0.0",
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-window": "^1.8.10"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/react-window": "^1.8.8",
     "@typescript-eslint/eslint-plugin": "^8.13.0",
     "@typescript-eslint/parser": "^8.49.0",
     "@vitejs/plugin-react": "^4.3.3",
