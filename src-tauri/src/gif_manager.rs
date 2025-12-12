@@ -107,7 +107,9 @@ fn copy_gif_to_clipboard_wayland(gif_path: &Path) -> Result<(), String> {
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn wl-copy: {e}. Make sure wl-clipboard is installed."))?;
+        .map_err(|e| {
+            format!("Failed to spawn wl-copy: {e}. Make sure wl-clipboard is installed.")
+        })?;
 
     if let Some(mut stdin) = child.stdin.take() {
         stdin
