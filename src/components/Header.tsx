@@ -1,4 +1,3 @@
-import { Trash2, Settings } from 'lucide-react'
 import { clsx } from 'clsx'
 
 interface HeaderProps {
@@ -14,7 +13,7 @@ export function Header({ onClearHistory, itemCount }: HeaderProps) {
     <div className="flex items-center justify-between px-4 py-3" data-tauri-drag-region>
       <div className="flex items-center gap-2">
         <h1 className="text-sm font-semibold dark:text-win11-text-primary text-win11Light-text-primary">
-          Clipboard History
+          Clipboard
         </h1>
         {itemCount > 0 && (
           <span className="text-xs px-2 py-0.5 rounded-full dark:bg-win11-bg-tertiary bg-win11Light-bg-tertiary dark:text-win11-text-secondary text-win11Light-text-secondary">
@@ -37,20 +36,7 @@ export function Header({ onClearHistory, itemCount }: HeaderProps) {
           )}
           title="Clear all"
         >
-          <Trash2 className="w-4 h-4" />
-        </button>
-
-        {/* Settings button (placeholder for future) */}
-        <button
-          className={clsx(
-            'no-drag',
-            'p-2 rounded-md transition-colors',
-            'dark:text-win11-text-secondary text-win11Light-text-secondary',
-            'hover:dark:bg-win11-bg-tertiary hover:bg-win11Light-bg-tertiary'
-          )}
-          title="Settings"
-        >
-          <Settings className="w-4 h-4" />
+          <span className="text-xs">Clear All</span>
         </button>
       </div>
     </div>

@@ -13,13 +13,13 @@ interface TabBarProps {
 export function TabBar({ activeTab, onTabChange }: TabBarProps) {
   const tabs: { id: ActiveTab; label: string; icon: typeof ClipboardList }[] = [
     { id: 'clipboard', label: 'Clipboard', icon: ClipboardList },
-    { id: 'gifs', label: 'GIFs', icon: Image },
     { id: 'emoji', label: 'Emoji', icon: Smile },
+    { id: 'gifs', label: 'GIFs', icon: Image },
   ]
 
   return (
     <div
-      className="flex items-center gap-1 p-2 border-b dark:border-win11-border-subtle border-win11Light-border"
+      className="flex items-center gap-1 p-2 px-4 border-b dark:border-win11-border-subtle border-win11Light-border"
       data-tauri-drag-region
     >
       {tabs.map((tab) => {

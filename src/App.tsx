@@ -61,25 +61,31 @@ function App() {
         }
 
         return (
-          <div className="flex flex-col gap-2 p-3">
-            {history.map((item, index) => (
-              <HistoryItem
-                key={item.id}
-                item={item}
-                index={index}
-                onPaste={pasteItem}
-                onDelete={deleteItem}
-                onTogglePin={togglePin}
-              />
-            ))}
-          </div>
+          <>
+            <Header
+              onClearHistory={clearHistory}
+              itemCount={history.filter((i) => !i.pinned).length}
+            />
+            <div className="flex flex-col gap-2 p-3">
+              {history.map((item, index) => (
+                <HistoryItem
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  onPaste={pasteItem}
+                  onDelete={deleteItem}
+                  onTogglePin={togglePin}
+                />
+              ))}
+            </div>
+          </>
         )
-
-      case 'gifs':
-        return <GifPicker />
 
       case 'emoji':
         return <EmojiPicker />
+
+      case 'gifs':
+        return <GifPicker />
 
       default:
         return null
@@ -104,7 +110,6 @@ function App() {
       <DragHandle />
 
       {/* Header with title and actions */}
-      <Header onClearHistory={clearHistory} itemCount={history.filter((i) => !i.pinned).length} />
 
       {/* Tab bar */}
       <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
@@ -118,17 +123,6 @@ function App() {
         )}
       >
         {renderContent()}
-      </div>
-
-      {/* Footer hint */}
-      <div className="px-4 py-2 text-center border-t dark:border-win11-border-subtle border-win11Light-border">
-        <p className="text-xs dark:text-win11-text-tertiary text-win11Light-text-secondary">
-          Click an item to paste • Press{' '}
-          <kbd className="px-1 py-0.5 rounded dark:bg-win11-bg-tertiary bg-win11Light-bg-tertiary font-mono">
-            Esc
-          </kbd>{' '}
-          to close
-        </p>
       </div>
     </div>
   )
