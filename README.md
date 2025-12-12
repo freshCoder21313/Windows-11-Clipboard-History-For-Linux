@@ -7,7 +7,7 @@
 ![Tauri](https://img.shields.io/badge/tauri-v2-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey.svg)
 
-**A beautiful, Windows 11-style Clipboard History Manager for Linux**
+**A beautiful, Windows 11-style Clipboard History Manager for Linux 💅**
 
 ![Screenshot](docs/img/win11-clipboard-history.jpg)
 
