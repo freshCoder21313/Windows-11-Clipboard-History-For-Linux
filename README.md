@@ -9,7 +9,7 @@
 
 **A beautiful, Windows 11-style Clipboard History Manager for Linux 💅**
 
-![Screenshot](docs/img/win11-clipboard-history.jpg)
+<img src="docs/img/win11-clipboard-history.png" alt="Screenshot" style="border-radius: 30px; max-width:100%; height:auto; box-shadow: 0 10px 30px rgba(2,6,23,0.35), 0 2px 6px rgba(2,6,23,0.12); filter: drop-shadow(0 6px 18px rgba(2,6,23,0.25));" />
 
 Built with 🦀 Rust + ⚡ Tauri v2 + ⚛️ React + 🎨 Tailwind CSS
 
