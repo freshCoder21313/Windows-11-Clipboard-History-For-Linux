@@ -122,6 +122,10 @@ export function useGifPicker() {
 
   // Refresh trending GIFs
   const refreshTrending = useCallback(() => {
+    // Clear any pending search to prevent race conditions
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
     setSearchQuery('')
     fetchGifs('')
   }, [fetchGifs])
