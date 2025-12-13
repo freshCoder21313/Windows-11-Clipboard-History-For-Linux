@@ -18,10 +18,7 @@ pub fn simulate_paste_keystroke() -> Result<(), String> {
         ("uinput", simulate_paste_uinput),
     ];
 
-    const NON_X11_STRATEGIES: &[PasteStrategy] = &[
-        ("enigo", simulate_paste_enigo),
-        ("uinput", simulate_paste_uinput),
-    ];
+    const NON_X11_STRATEGIES: &[PasteStrategy] = &[("uinput", simulate_paste_uinput)];
 
     let strategies = if session::is_x11() {
         X11_STRATEGIES
