@@ -9,6 +9,7 @@ import { DragHandle } from './components/DragHandle'
 import { EmojiPicker } from './components/EmojiPicker'
 import { GifPicker } from './components/GifPicker'
 import { KaomojiPicker } from './components/KaomojiPicker'
+import { SymbolPicker } from './components/SymbolPicker'
 import { calculateSecondaryOpacity, calculateTertiaryOpacity } from './utils/themeUtils'
 import type { ActiveTab, UserSettings } from './types/clipboard'
 import { ClipboardTab } from './components/ClipboardTab'
@@ -234,6 +235,9 @@ function ClipboardApp() {
       case 'kaomoji':
         return <KaomojiPicker isDark={isDark} opacity={secondaryOpacity} onShowToast={showToast} customKaomojis={settings.custom_kaomojis} />
 
+      case 'symbols':
+        return <SymbolPicker isDark={isDark} opacity={secondaryOpacity} />
+
       default:
         return null
     }
@@ -279,7 +283,7 @@ function ClipboardApp() {
         className={clsx(
           'flex-1',
           // Only use scrollbar for non-emoji/gif/kaomoji tabs, they have their own virtualized scrolling or containers
-          activeTab === 'emoji' || activeTab === 'gifs' || activeTab === 'kaomoji'
+          activeTab === 'emoji' || activeTab === 'gifs' || activeTab === 'kaomoji' || activeTab === 'symbols'
             ? 'overflow-hidden'
             : 'overflow-y-auto scrollbar-win11'
         )}

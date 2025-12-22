@@ -30,7 +30,7 @@ export interface ClipboardItem {
 }
 
 /** Active tab in the UI */
-export type ActiveTab = 'clipboard' | 'gifs' | 'emoji' | 'kaomoji'
+export type ActiveTab = 'clipboard' | 'gifs' | 'emoji' | 'kaomoji' | 'symbols'
 
 /** Theme mode */
 export type ThemeMode = 'light' | 'dark' | 'system'
