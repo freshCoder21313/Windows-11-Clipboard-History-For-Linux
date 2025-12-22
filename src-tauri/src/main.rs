@@ -156,6 +156,34 @@ async fn paste_emoji(
 }
 
 #[tauri::command]
+async fn paste_kaomoji(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    text: String,
+) -> Result<(), String> {
+    // 1. Prepare Environment
+    WindowController::hide(&app);
+    PasteHelper::prepare_target_window().await?;
+
+    // 2. Set Clipboard & Mark
+    {
+        let mut manager = state.clipboard_manager.lock();
+        manager.mark_text_as_pasted(&text);
+
+        use arboard::Clipboard;
+        Clipboard::new()
+            .map_err(|e| e.to_string())?
+            .set_text(&text)
+            .map_err(|e| e.to_string())?;
+    }
+
+    // 3. Simulate Paste
+    simulate_paste_keystroke().map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn paste_gif_from_url(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -709,6 +737,7 @@ fn main() {
             paste_item,
             get_recent_emojis,
             paste_emoji,
+            paste_kaomoji,
             paste_gif_from_url,
             finish_paste,
             set_mouse_state,
