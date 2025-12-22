@@ -298,14 +298,6 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
       {item.pinned && (
         <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-win11-bg-accent" />
       )}
-
-
-
-// ... (imports)
-
-// ... (component code)
-
-
     </div>
   )
 })
