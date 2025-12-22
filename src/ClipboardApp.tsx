@@ -1,21 +1,18 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { clsx } from 'clsx'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { useClipboardHistory } from './hooks/useClipboardHistory'
-import { HistoryItem } from './components/HistoryItem'
 import { TabBar, TabBarRef } from './components/TabBar'
-import { Header } from './components/Header'
-import { EmptyState } from './components/EmptyState'
 import { DragHandle } from './components/DragHandle'
 import { EmojiPicker } from './components/EmojiPicker'
 import { GifPicker } from './components/GifPicker'
-import { SearchBar } from './components/SearchBar'
-import { Toast } from './components/Toast'
 import { KaomojiPicker } from './components/KaomojiPicker'
 import { calculateSecondaryOpacity, calculateTertiaryOpacity } from './utils/themeUtils'
 import type { ActiveTab, UserSettings } from './types/clipboard'
+import { ClipboardTab } from './components/ClipboardTab'
+import { useToast } from './hooks/useToast'
 
 const DEFAULT_SETTINGS: UserSettings = {
   theme_mode: 'system',
@@ -91,15 +88,6 @@ function ClipboardApp() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('clipboard')
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
-  const [focusedIndex, setFocusedIndex] = useState(0)
-
-  // Search State
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isRegexMode, setIsRegexMode] = useState(false)
-  
-  // UI States
-  const [isCompact, setIsCompact] = useState(false)
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const isDark = useThemeMode(settings.theme_mode)
   const opacity = isDark ? settings.dark_background_opacity : settings.light_background_opacity
@@ -111,7 +99,6 @@ function ClipboardApp() {
 
   // Refs for focus management
   const tabBarRef = useRef<TabBarRef>(null)
-  const historyItemRefs = useRef<(HTMLDivElement | null)[]>([])
   const contentContainerRef = useRef<HTMLDivElement>(null)
 
   // Load initial settings and set up listener for changes
@@ -163,43 +150,13 @@ function ClipboardApp() {
     return () => globalThis.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Filter history based on search query and active tab
-  const filteredHistory = useMemo(() => {
-    const items = history
-
-
-
-    if (!searchQuery) return items
-
-    return items.filter((item) => {
-      if (item.content.type !== 'Text') return false
-      
-      try {
-        if (isRegexMode) {
-            const regex = new RegExp(searchQuery, 'i')
-            return regex.test(item.content.data)
-        } else {
-            return item.content.data.toLowerCase().includes(searchQuery.toLowerCase())
-        }
-      } catch {
-        // Invalid regex
-        return false
-      }
-    })
-  }, [history, searchQuery, isRegexMode])
-
   // Use refs to store current values for the focus handler (to avoid re-registering listener)
   const activeTabRef = useRef(activeTab)
-  const historyRef = useRef(filteredHistory) // Use filtered history
 
   // Keep refs in sync
   useEffect(() => {
     activeTabRef.current = activeTab
   }, [activeTab])
-
-  useEffect(() => {
-    historyRef.current = filteredHistory
-  }, [filteredHistory])
 
   // Handle window-shown event for focus management (registered once)
   useEffect(() => {
@@ -207,16 +164,10 @@ function ClipboardApp() {
       // Small delay to ensure the window is fully rendered and focused
       setTimeout(() => {
         const currentTab = activeTabRef.current
-        const currentHistory = historyRef.current
 
-        if (currentTab === 'clipboard') {
-          // Focus the first history item if on clipboard or favorites tab
-          if (currentHistory.length > 0) {
-            setFocusedIndex(0)
-            historyItemRefs.current[0]?.focus()
-          }
-        } else {
+        if (currentTab !== 'clipboard') {
           // Focus the first tab button if on other tabs
+          // Clipboard tab focus is handled inside ClipboardTab component
           tabBarRef.current?.focusFirstTab()
         }
       }, 100)
@@ -230,63 +181,9 @@ function ClipboardApp() {
     }
   }, []) // Empty dependency array - listener is registered once
 
-  // Keyboard navigation for clipboard items
-  useEffect(() => {
-    if (activeTab !== 'clipboard' || filteredHistory.length === 0) return
-
-    const handleArrowKeys = (e: KeyboardEvent) => {
-      // Check if a tab button is focused - if so, don't intercept arrows
-      const activeElement = document.activeElement
-      if (activeElement?.getAttribute('role') === 'tab') return
-      // Check if search bar is focused
-      if (activeElement?.tagName === 'INPUT') return
-
-      // Check if focus is on a history item
-      if (historyItemRefs.current.some((ref) => ref === activeElement) || activeElement === document.body) {
-         // Allow navigation if focus is on body (just opened) or history item
-      } else {
-         return
-      }
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        const newIndex = Math.min(focusedIndex + 1, filteredHistory.length - 1)
-        setFocusedIndex(newIndex)
-        historyItemRefs.current[newIndex]?.focus()
-        historyItemRefs.current[newIndex]?.scrollIntoView({ block: 'nearest' })
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        const newIndex = Math.max(focusedIndex - 1, 0)
-        setFocusedIndex(newIndex)
-        historyItemRefs.current[newIndex]?.focus()
-        historyItemRefs.current[newIndex]?.scrollIntoView({ block: 'nearest' })
-      } else if (e.key === 'Home') {
-        e.preventDefault()
-        setFocusedIndex(0)
-        historyItemRefs.current[0]?.focus()
-        historyItemRefs.current[0]?.scrollIntoView({ block: 'nearest' })
-      } else if (e.key === 'End') {
-        e.preventDefault()
-        const lastIndex = filteredHistory.length - 1
-        setFocusedIndex(lastIndex)
-        historyItemRefs.current[lastIndex]?.focus()
-        historyItemRefs.current[lastIndex]?.scrollIntoView({ block: 'nearest' })
-      } else if (e.key === 'Tab' && !e.shiftKey) {
-        // When pressing Tab on a history item, go back to the tab bar
-        e.preventDefault()
-        tabBarRef.current?.focusFirstTab()
-      }
-    }
-
-    globalThis.addEventListener('keydown', handleArrowKeys)
-    return () => globalThis.removeEventListener('keydown', handleArrowKeys)
-  }, [activeTab, focusedIndex, filteredHistory.length])
-
   // Handle tab change
   const handleTabChange = useCallback((tab: ActiveTab) => {
     setActiveTab(tab)
-    setFocusedIndex(0) // Reset focused index when changing tabs
-    setSearchQuery('') // Clear search
   }, [])
 
   const handleMouseEnter = () => {
@@ -297,10 +194,8 @@ function ClipboardApp() {
     invoke('set_mouse_state', { inside: false }).catch(console.error)
   }
   
-  // Show toast helper
-  const showToast = useCallback((msg: string) => {
-      setToastMessage(msg)
-  }, [])
+  // Toast Logic
+  const { showToast, ToastContainer } = useToast()
   
   // Override paste to show toast
   const handlePaste = useCallback((id: string) => {
@@ -310,83 +205,24 @@ function ClipboardApp() {
       }
   }, [pasteItem, showToast, settings.enable_ui_polish])
 
-
-
   // Render content based on active tab
   const renderContent = () => {
     switch (activeTab) {
       case 'clipboard':
-
-        if (isLoading) {
-          return (
-            <div className="flex items-center justify-center h-full select-none">
-              <div className="w-6 h-6 border-2 border-win11-bg-accent border-t-transparent rounded-full animate-spin" />
-            </div>
-          )
-        }
-
-        // Different empty states could be nice, but sharing for now
-        if (history.length === 0 && activeTab === 'clipboard') {
-          return <EmptyState isDark={isDark} />
-        }
-        
-
-
         return (
-          <>
-            <Header
-              onClearHistory={clearHistory}
-              itemCount={filteredHistory.length}
-              isDark={isDark}
-              tertiaryOpacity={tertiaryOpacity}
-              isCompact={isCompact}
-              onToggleCompact={() => setIsCompact(!isCompact)}
-            />
-            {/* Search Bar for Clipboard & Favorites */}
-            <div className="px-3 pb-2 pt-1">
-                 <SearchBar
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    isDark={isDark}
-                    opacity={secondaryOpacity}
-                    placeholder="Search history..."
-                    isRegex={isRegexMode}
-                    onToggleRegex={() => setIsRegexMode(!isRegexMode)}
-                    onClear={() => setSearchQuery('')}
-                 />
-            </div>
-            
-            {filteredHistory.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center opacity-60">
-                    <p className={clsx("text-sm", isDark ? "text-win11-text-secondary" : "text-win11Light-text-secondary")}>
-                        No items found
-                    </p>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-2 p-3" role="listbox" aria-label="Clipboard history">
-                  {filteredHistory.map((item, index) => (
-                    <HistoryItem
-                      key={item.id}
-                      ref={(el) => {
-                        historyItemRefs.current[index] = el
-                      }}
-                      item={item}
-                      index={index}
-                      isFocused={index === focusedIndex}
-                      onPaste={handlePaste}
-                      onDelete={deleteItem}
-                      onTogglePin={togglePin}
-                      onFocus={() => setFocusedIndex(index)}
-                      isDark={isDark}
-                      secondaryOpacity={secondaryOpacity}
-                      isCompact={isCompact}
-                      enableSmartActions={settings.enable_smart_actions}
-                      enableUiPolish={settings.enable_ui_polish}
-                    />
-                  ))}
-                </div>
-            )}
-          </>
+          <ClipboardTab
+            history={history}
+            isLoading={isLoading}
+            isDark={isDark}
+            tertiaryOpacity={tertiaryOpacity}
+            secondaryOpacity={secondaryOpacity}
+            clearHistory={clearHistory}
+            deleteItem={deleteItem}
+            togglePin={togglePin}
+            onPaste={handlePaste}
+            settings={settings}
+            tabBarRef={tabBarRef}
+          />
         )
 
       case 'emoji':
@@ -421,12 +257,7 @@ function ClipboardApp() {
     >
       {/* Toast Notification */}
       {settings.enable_ui_polish && (
-          <Toast 
-              message={toastMessage} 
-              onClose={() => setToastMessage(null)} 
-              isDark={isDark} 
-              opacity={secondaryOpacity} 
-          />
+          <ToastContainer isDark={isDark} opacity={secondaryOpacity} />
       )}
 
       {/* Drag Handle */}

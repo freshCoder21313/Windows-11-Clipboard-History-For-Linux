@@ -1,10 +1,10 @@
-import { useCallback, forwardRef, useMemo } from 'react'
+import { useCallback, forwardRef } from 'react'
 import { clsx } from 'clsx'
-import { Pin, X, Image as ImageIcon, Type, ExternalLink, Mail } from 'lucide-react'
+import { Pin, X, Image as ImageIcon, Type } from 'lucide-react'
 import type { ClipboardItem } from '../types/clipboard'
 import { getCardBackgroundStyle, getTertiaryBackgroundStyle } from '../utils/themeUtils'
-import { smartActionService } from '../services/smartActionService'
-import type { SmartAction } from '../services/smartActionService'
+import { useSmartActions } from '../hooks/useSmartActions'
+import { HistorySmartActions } from './HistorySmartActions'
 
 interface HistoryItemProps {
   item: ClipboardItem
@@ -20,6 +20,116 @@ interface HistoryItemProps {
   // Feature flags passed from parent
   enableSmartActions: boolean
   enableUiPolish: boolean
+}
+
+// Helper components & functions
+function getIconSize(effectiveCompact: boolean) {
+  return effectiveCompact ? 'w-3 h-3' : 'w-4 h-4'
+}
+
+function getIconContainerClasses(effectiveCompact: boolean) {
+  return clsx(
+    'flex-shrink-0 rounded-md flex items-center justify-center',
+    effectiveCompact ? 'w-6 h-6' : 'w-8 h-8'
+  )
+}
+
+function TextContent({
+  item,
+  isDark,
+  effectiveCompact,
+}: {
+  item: ClipboardItem
+  isDark: boolean
+  effectiveCompact: boolean
+}) {
+  if (item.content.type !== 'Text') return null
+  return (
+    <p
+      className={clsx(
+        'text-sm break-words whitespace-pre-wrap',
+        effectiveCompact ? 'line-clamp-1' : 'line-clamp-3',
+        isDark ? 'text-win11-text-primary' : 'text-win11Light-text-primary'
+      )}
+    >
+      {item.content.data}
+    </p>
+  )
+}
+
+function ImageContent({
+  item,
+  isDark,
+  effectiveCompact,
+}: {
+  item: ClipboardItem
+  isDark: boolean
+  effectiveCompact: boolean
+}) {
+  if (item.content.type !== 'Image') return null
+  const { width, height, base64 } = item.content.data
+
+  if (effectiveCompact) {
+    return (
+      <span
+        className={clsx(
+          'text-sm italic',
+          isDark ? 'text-win11-text-tertiary' : 'text-win11Light-text-secondary'
+        )}
+      >
+        Image ({width}×{height})
+      </span>
+    )
+  }
+
+  return (
+    <div className="relative">
+      <img
+        src={`data:image/png;base64,${base64}`}
+        alt="Clipboard image"
+        className="max-w-full max-h-24 rounded object-contain bg-black/10"
+      />
+      <span className="absolute bottom-1 right-1 text-xs px-1.5 py-0.5 rounded bg-black/60 text-white">
+        {width}×{height}
+      </span>
+    </div>
+  )
+}
+
+function Timestamp({
+  show,
+  isDark,
+  timestamp,
+}: {
+  show: boolean
+  isDark: boolean
+  timestamp: string
+}) {
+  if (!show) return null
+  
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    return date.toLocaleDateString()
+  }
+
+  return (
+    <span
+      className={clsx(
+        'text-xs mt-1 block',
+        isDark ? 'text-win11-text-tertiary' : 'text-win11Light-text-secondary'
+      )}
+    >
+      {formatTime(timestamp)}
+    </span>
+  )
 }
 
 export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function HistoryItem(
@@ -43,33 +153,12 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
   
   // Use compact mode only if enabled by flag
   const effectiveCompact = enableUiPolish ? isCompact : false
+  const iconSize = getIconSize(effectiveCompact)
+  const iconContainerClasses = getIconContainerClasses(effectiveCompact)
 
-  // Detect smart actions (memoized)
-  const smartActions = useMemo(() => {
-    if (!enableSmartActions) return []
-    if (item.content.type === 'Text') {
-        return smartActionService.detectActions(item.content.data)
-    }
-    return []
-  }, [item.content, enableSmartActions])
-
-  const colorPreview = smartActions.find(a => a.id === 'color-preview')
-  const linkAction = smartActions.find(a => a.id === 'open-link')
-  const emailAction = smartActions.find(a => a.id === 'compose-email')
-
-  // Format timestamp
-  const formatTime = useCallback((timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    return date.toLocaleDateString()
-  }, [])
+  // Smart Actions Hook
+  const { colorPreview, linkAction, emailAction, handleSmartAction } =
+    useSmartActions(item, enableSmartActions)
 
   // Handle paste on click
   const handleClick = useCallback(() => {
@@ -94,12 +183,6 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     [item.id, onTogglePin]
   )
   
-  // Handle smart action execution
-  const handleSmartAction = useCallback(async (e: React.MouseEvent, action: SmartAction) => {
-      e.stopPropagation()
-      await smartActionService.execute(action)
-  }, [])
-
   return (
     <div
       ref={ref}
@@ -138,12 +221,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div
-          className={clsx(
-              'flex-shrink-0 rounded-md flex items-center justify-center',
-              effectiveCompact ? 'w-6 h-6' : 'w-8 h-8',
-              // If color preview, use the color as background
-             colorPreview && 'shadow-sm'
-          )}
+          className={clsx(iconContainerClasses, colorPreview && 'shadow-sm')}
           style={
             colorPreview && colorPreview.data
               ? { backgroundColor: colorPreview.data }
@@ -154,14 +232,14 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
           {colorPreview ? null : isText ? (
             <Type
               className={clsx(
-                effectiveCompact ? 'w-3 h-3' : 'w-4 h-4',
+                iconSize,
                 isDark ? 'text-win11-text-secondary' : 'text-win11Light-text-secondary'
               )}
             />
           ) : (
             <ImageIcon
               className={clsx(
-                effectiveCompact ? 'w-3 h-3' : 'w-4 h-4',
+                iconSize,
                 isDark ? 'text-win11-text-secondary' : 'text-win11Light-text-secondary'
               )}
             />
@@ -170,50 +248,13 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {item.content.type === 'Text' && (
-            <p
-              className={clsx(
-                'text-sm break-words whitespace-pre-wrap',
-                 effectiveCompact ? 'line-clamp-1' : 'line-clamp-3',
-                isDark ? 'text-win11-text-primary' : 'text-win11Light-text-primary'
-              )}
-            >
-              {item.content.data}
-            </p>
-          )}
-
-          {item.content.type === 'Image' && (
-            <div className="relative">
-              {!effectiveCompact ? (
-                  <>
-                      <img
-                        src={`data:image/png;base64,${item.content.data.base64}`}
-                        alt="Clipboard image"
-                        className="max-w-full max-h-24 rounded object-contain bg-black/10"
-                      />
-                      <span className="absolute bottom-1 right-1 text-xs px-1.5 py-0.5 rounded bg-black/60 text-white">
-                        {item.content.data.width}×{item.content.data.height}
-                      </span>
-                  </>
-              ) : (
-                  <span className={clsx("text-sm italic", isDark ? 'text-win11-text-tertiary' : 'text-win11Light-text-secondary')}>
-                      Image ({item.content.data.width}×{item.content.data.height})
-                  </span>
-              )}
-            </div>
-          )}
-
-          {/* Timestamp */}
-          {!effectiveCompact && (
-              <span
-                className={clsx(
-                  'text-xs mt-1 block',
-                  isDark ? 'text-win11-text-tertiary' : 'text-win11Light-text-secondary'
-                )}
-              >
-                {formatTime(item.timestamp)}
-              </span>
-          )}
+          <TextContent item={item} isDark={isDark} effectiveCompact={effectiveCompact} />
+          <ImageContent item={item} isDark={isDark} effectiveCompact={effectiveCompact} />
+          <Timestamp
+            show={!effectiveCompact}
+            isDark={isDark}
+            timestamp={item.timestamp}
+          />
         </div>
 
         {/* Action buttons - visible on hover */}
@@ -224,39 +265,12 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
           )}
         >
            {/* Smart Actions Buttons */}
-           {linkAction && (
-               <button
-                 onClick={(e) => handleSmartAction(e, linkAction)}
-                 className={clsx(
-                   'p-1.5 rounded-md transition-colors',
-                   isDark
-                     ? 'text-win11-text-tertiary hover:bg-win11-bg-tertiary'
-                     : 'text-win11Light-text-secondary hover:bg-win11Light-bg-tertiary'
-                 )}
-                 title="Open Link"
-                 tabIndex={-1}
-               >
-                 <ExternalLink className="w-4 h-4" />
-               </button>
-           )}
-           
-           {emailAction && (
-               <button
-                 onClick={(e) => handleSmartAction(e, emailAction)}
-                 className={clsx(
-                   'p-1.5 rounded-md transition-colors',
-                   isDark
-                     ? 'text-win11-text-tertiary hover:bg-win11-bg-tertiary'
-                     : 'text-win11Light-text-secondary hover:bg-win11Light-bg-tertiary'
-                 )}
-                 title="Compose Email"
-                 tabIndex={-1}
-               >
-                 <Mail className="w-4 h-4" />
-               </button>
-           )}
-
-
+           <HistorySmartActions
+                linkAction={linkAction}
+                emailAction={emailAction}
+                isDark={isDark}
+                onActionClick={handleSmartAction}
+           />
 
           {/* Pin button */}
           <button

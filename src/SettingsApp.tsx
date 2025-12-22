@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event'
 import { clsx } from 'clsx'
 
 import type { UserSettings, CustomKaomoji } from './types/clipboard'
+import { FeaturesSection } from './components/FeaturesSection'
 
 const DEFAULT_SETTINGS: UserSettings = {
   theme_mode: 'system',
@@ -17,6 +18,10 @@ const DEFAULT_SETTINGS: UserSettings = {
 }
 
 type ThemeMode = 'system' | 'dark' | 'light'
+
+type BooleanSettingKey = {
+    [K in keyof UserSettings]: UserSettings[K] extends boolean ? K : never
+}[keyof UserSettings]
 
 /**
  * Determines if dark mode should be active based on theme mode setting
@@ -115,25 +120,6 @@ const ResetIcon = () => (
   </svg>
 )
 
-const Switch = ({ checked, onChange, isDark }: { checked: boolean; onChange: (v: boolean) => void, isDark: boolean }) => (
-    <button
-        onClick={() => onChange(!checked)}
-        className={clsx(
-            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-win11-bg-accent focus:ring-offset-2",
-             checked ? 'bg-win11-bg-accent' : (isDark ? 'bg-white/10' : 'bg-gray-300'),
-             // Focus ring offset color fix for dark mode
-             isDark ? 'focus:ring-offset-gray-900' : 'focus:ring-offset-white'
-        )}
-    >
-        <span
-            className={clsx(
-                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                checked ? 'translate-x-6' : 'translate-x-1'
-            )}
-        />
-    </button>
-)
-
 /**
  * Settings App Component - Configuration UI for Win11 Clipboard History
  */
@@ -142,6 +128,9 @@ function SettingsApp() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  
+  // Custom Kaomoji State
+  const [newKaomoji, setNewKaomoji] = useState('')
 
   // Apply theme to settings window itself
   const isDark = useThemeMode(settings.theme_mode)
@@ -206,12 +195,19 @@ function SettingsApp() {
       setIsSaving(false)
     }
   }, [])
+  
+  // Centralized settings update helper
+  const updateSettings = useCallback((partial: Partial<UserSettings>) => {
+      setSettings(prev => {
+          const next = { ...prev, ...partial }
+          saveSettings(next)
+          return next
+      })
+  }, [saveSettings])
 
   // Handle theme mode change
   const handleThemeModeChange = (mode: ThemeMode) => {
-    const newSettings = { ...settings, theme_mode: mode }
-    setSettings(newSettings)
-    saveSettings(newSettings)
+    updateSettings({ theme_mode: mode })
   }
 
   // Handle dark opacity change (visual only, no disk I/O)
@@ -230,12 +226,30 @@ function SettingsApp() {
   }
 
   // Handle Feature Toggles
-  const handleToggle = (key: keyof UserSettings) => {
-      const newVal = !settings[key]
-      const newSettings = { ...settings, [key]: newVal }
-      setSettings(newSettings)
-      saveSettings(newSettings)
+  const handleToggle = (key: BooleanSettingKey) => {
+      // Type safe toggle
+      updateSettings({ [key]: !settings[key] } as Partial<UserSettings>)
   }
+
+  // Custom Kaomoji Handlers
+  const addCustomKaomoji = useCallback(() => {
+      const val = newKaomoji.trim()
+      if (!val) return
+
+      const newItem: CustomKaomoji = {
+          text: val,
+          category: 'Custom',
+          keywords: ['custom'],
+      }
+
+      updateSettings({ custom_kaomojis: [...settings.custom_kaomojis, newItem] })
+      setNewKaomoji('')
+  }, [newKaomoji, settings.custom_kaomojis, updateSettings])
+
+  const removeCustomKaomojiAt = useCallback((index: number) => {
+      const newList = settings.custom_kaomojis.filter((_, i) => i !== index)
+      updateSettings({ custom_kaomojis: newList })
+  }, [settings.custom_kaomojis, updateSettings])
 
   // Handle window close
   const handleClose = async () => {
@@ -491,7 +505,8 @@ function SettingsApp() {
                 <div className="flex gap-2">
                     <input 
                         type="text" 
-                        id="new-kaomoji"
+                        value={newKaomoji}
+                        onChange={(e) => setNewKaomoji(e.target.value)}
                         placeholder="( ˘ ³˘)♥"
                         className={clsx(
                             "flex-1 px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-win11-bg-accent/50 transition-all",
@@ -501,43 +516,12 @@ function SettingsApp() {
                         )}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                                const val = (e.target as HTMLInputElement).value.trim()
-                                if (val) {
-                                    const newItem: CustomKaomoji = { 
-                                        text: val, 
-                                        category: 'Custom', 
-                                        keywords: ['custom'] 
-                                    }
-                                    const newSettings = { 
-                                        ...settings, 
-                                        custom_kaomojis: [...settings.custom_kaomojis, newItem] 
-                                    }
-                                    setSettings(newSettings)
-                                    saveSettings(newSettings)
-                                    ;(e.target as HTMLInputElement).value = ''
-                                }
+                                addCustomKaomoji()
                             }
                         }}
                     />
                     <button 
-                        onClick={() => {
-                           const input = document.getElementById('new-kaomoji') as HTMLInputElement
-                           const val = input.value.trim()
-                           if (val) {
-                                const newItem: CustomKaomoji = { 
-                                    text: val, 
-                                    category: 'Custom', 
-                                    keywords: ['custom'] 
-                                }
-                                const newSettings = { 
-                                    ...settings, 
-                                    custom_kaomojis: [...settings.custom_kaomojis, newItem] 
-                                }
-                                setSettings(newSettings)
-                                saveSettings(newSettings)
-                                input.value = ''
-                           }
-                        }}
+                        onClick={addCustomKaomoji}
                         className="px-4 py-2 bg-win11-bg-accent text-white rounded-md text-sm font-medium hover:opacity-90 active:scale-95 transition-all"
                     >
                         Add
@@ -559,12 +543,7 @@ function SettingsApp() {
                             >
                                 <span className="font-mono text-sm truncate mr-2" title={item.text}>{item.text}</span>
                                 <button
-                                    onClick={() => {
-                                        const newList = settings.custom_kaomojis.filter((_, i) => i !== idx)
-                                        const newSettings = { ...settings, custom_kaomojis: newList }
-                                        setSettings(newSettings)
-                                        saveSettings(newSettings)
-                                    }}
+                                    onClick={() => removeCustomKaomojiAt(idx)}
                                     className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-500/10 rounded transition-all"
                                     title="Delete"
                                 >
@@ -582,38 +561,11 @@ function SettingsApp() {
         </section>
 
         {/* Features Section */}
-        <section
-          className={clsx(
-            'rounded-xl border shadow-sm overflow-hidden',
-            isDark ? 'bg-win11-bg-secondary border-white/5' : 'bg-white border-gray-200/60'
-          )}
-        >
-            <div className="p-6 border-b border-inherit">
-                <h2 className="text-base font-semibold mb-1">Features</h2>
-                <p className={clsx('text-xs', isDark ? 'text-gray-400' : 'text-gray-500')}>
-                    Customize the functionality of the application
-                </p>
-            </div>
-            <div className="p-6 space-y-6">
-                {[
-                    { key: 'enable_smart_actions', label: 'Smart Actions', desc: 'Automatically detect links, colors, and emails.' },
-
-                    { key: 'enable_ui_polish', label: 'UI Polish', desc: 'Enable animations, toast notifications, and compact mode support.' },
-                ].map(feature => (
-                    <div key={feature.key} className="flex items-center justify-between">
-                        <div>
-                            <div className="text-sm font-medium">{feature.label}</div>
-                            <div className={clsx("text-xs", isDark ? "text-gray-400" : "text-gray-500")}>{feature.desc}</div>
-                        </div>
-                        <Switch 
-                            checked={!!settings[feature.key as keyof UserSettings]} 
-                            onChange={() => handleToggle(feature.key as keyof UserSettings)}
-                            isDark={isDark}
-                        />
-                    </div>
-                ))}
-            </div>
-        </section>
+        <FeaturesSection 
+            settings={settings}
+            isDark={isDark}
+            onToggle={handleToggle}
+        />
 
         {/* Reset Section */}
         <div className="flex justify-end pt-2">
