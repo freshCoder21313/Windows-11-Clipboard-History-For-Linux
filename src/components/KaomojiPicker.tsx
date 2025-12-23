@@ -1,7 +1,8 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import { SearchBar } from './SearchBar'
-import { getTertiaryBackgroundStyle } from '../utils/themeUtils'
+import { CategoryPill } from './CategoryPill'
 import { invoke } from '@tauri-apps/api/core'
 import { KAOMOJI_CATEGORIES, getKaomojis } from '../services/kaomojiService'
 
@@ -18,6 +19,86 @@ interface KaomojiPickerProps {
 export function KaomojiPicker({ isDark, opacity, onShowToast, customKaomojis = [] }: KaomojiPickerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [categoryFocusedIndex, setCategoryFocusedIndex] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 200
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      })
+    }
+  }
+
+  // Keyboard navigation for categories
+  const handleCategoryKeyDown = useCallback(
+    (e: React.KeyboardEvent, currentIndex: number) => {
+      // Total items = 1 (All) + 1 (Custom if exists) + categories.length
+      const hasCustom = customKaomojis.length > 0
+      const totalItems = 1 + (hasCustom ? 1 : 0) + KAOMOJI_CATEGORIES.length
+      
+      let newIndex = currentIndex
+      let handled = false
+
+      switch (e.key) {
+        case 'ArrowRight':
+          if (currentIndex < totalItems - 1) {
+            newIndex = currentIndex + 1
+            handled = true
+          }
+          break
+        case 'ArrowLeft':
+          if (currentIndex > 0) {
+            newIndex = currentIndex - 1
+            handled = true
+          }
+          break
+        case 'Home':
+          newIndex = 0
+          handled = true
+          break
+        case 'End':
+          newIndex = totalItems - 1
+          handled = true
+          break
+        case 'Enter':
+        case ' ':
+          e.preventDefault()
+          if (currentIndex === 0) {
+            setSelectedCategory(null)
+          } else if (hasCustom && currentIndex === 1) {
+            setSelectedCategory('Custom')
+          } else {
+             // If hasCustom, categories start at index 2 (so subtract 2)
+             // If no custom, categories start at index 1 (so subtract 1)
+             const catIndex = currentIndex - (hasCustom ? 2 : 1)
+             setSelectedCategory(KAOMOJI_CATEGORIES[catIndex])
+          }
+          return
+      }
+
+      if (handled) {
+        e.preventDefault()
+        e.stopPropagation()
+        setCategoryFocusedIndex(newIndex)
+
+        // Scroll container if needed
+        const container = scrollContainerRef.current
+        if (container) {
+          const button = container.querySelector(
+            `[data-category-index="${newIndex}"]`
+          ) as HTMLElement
+          if (button) {
+            button.focus()
+            button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+          }
+        }
+      }
+    },
+    [setSelectedCategory, customKaomojis]
+  )
 
   const kaomojis = useMemo(() => {
     // Map CustomKaomoji to Kaomoji if structures differ (they are compatible: text, category, keywords)
@@ -58,48 +139,74 @@ export function KaomojiPicker({ isDark, opacity, onShowToast, customKaomojis = [
       </div>
 
       {/* Categories */}
-      <div className="px-3 pb-2 flex-shrink-0 flex gap-1.5 overflow-x-auto scrollbar-hide">
+      <div className="px-3 pb-2 flex-shrink-0 flex items-center gap-1">
         <button
-            onClick={() => setSelectedCategory(null)}
-            className={clsx(
-                "px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors",
-                selectedCategory === null 
-                    ? "bg-win11-bg-accent text-white" 
-                    : "text-win11-text-secondary hover:bg-win11-bg-tertiary"
-            )}
-            style={selectedCategory !== null ? getTertiaryBackgroundStyle(isDark, opacity) : undefined}
+          onClick={() => scrollCategories('left')}
+          className="p-1 rounded-full hover:bg-win11Light-bg-tertiary dark:hover:bg-win11-bg-card-hover text-win11Light-text-secondary dark:text-win11-text-secondary"
+          tabIndex={-1}
         >
-            All
+          <ChevronLeft className="w-4 h-4" />
         </button>
-        {customKaomojis.length > 0 && (
-            <button
-                onClick={() => setSelectedCategory('Custom')}
-                className={clsx(
-                    "px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors",
-                    selectedCategory === 'Custom'
-                        ? "bg-win11-bg-accent text-white" 
-                        : "text-win11-text-secondary hover:bg-win11-bg-tertiary"
-                )}
-                style={selectedCategory !== 'Custom' ? getTertiaryBackgroundStyle(isDark, opacity) : undefined}
-            >
-                Custom
-            </button>
-        )}
-        {KAOMOJI_CATEGORIES.map(cat => (
-             <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={clsx(
-                    "px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors",
-                    selectedCategory === cat 
-                        ? "bg-win11-bg-accent text-white" 
-                        : "text-win11-text-secondary hover:bg-win11-bg-tertiary"
-                )}
-                style={selectedCategory !== cat ? getTertiaryBackgroundStyle(isDark, opacity) : undefined}
-            >
-                {cat}
-            </button>
-        ))}
+
+        <div 
+          ref={scrollContainerRef}
+          className="flex gap-1.5 overflow-x-hidden scroll-smooth flex-1"
+          role="tablist"
+          aria-label="Kaomoji categories"
+        >
+          <CategoryPill
+              category="All"
+              isActive={selectedCategory === null}
+              onClick={() => setSelectedCategory(null)}
+              tabIndex={categoryFocusedIndex === 0 ? 0 : -1}
+              onKeyDown={(e) => handleCategoryKeyDown(e, 0)}
+              onFocus={() => setCategoryFocusedIndex(0)}
+              data-category-index={0}
+              isDark={isDark}
+              opacity={opacity}
+          />
+          {customKaomojis.length > 0 && (
+              <CategoryPill
+                  category="Custom"
+                  isActive={selectedCategory === 'Custom'}
+                  onClick={() => setSelectedCategory('Custom')}
+                  tabIndex={categoryFocusedIndex === 1 ? 0 : -1}
+                  onKeyDown={(e) => handleCategoryKeyDown(e, 1)}
+                  onFocus={() => setCategoryFocusedIndex(1)}
+                  data-category-index={1}
+                  isDark={isDark}
+                  opacity={opacity}
+              />
+          )}
+          {KAOMOJI_CATEGORIES.map((cat, idx) => {
+                // Determine the correct index based on whether custom exists
+                const hasCustom = customKaomojis.length > 0
+                const actualIndex = idx + (hasCustom ? 2 : 1)
+
+                return (
+                 <CategoryPill
+                    key={cat}
+                    category={cat}
+                    isActive={selectedCategory === cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    tabIndex={categoryFocusedIndex === actualIndex ? 0 : -1}
+                    onKeyDown={(e) => handleCategoryKeyDown(e, actualIndex)}
+                    onFocus={() => setCategoryFocusedIndex(actualIndex)}
+                    data-category-index={actualIndex}
+                    isDark={isDark}
+                    opacity={opacity}
+                />
+               )
+          })}
+        </div>
+
+        <button
+          onClick={() => scrollCategories('right')}
+          className="p-1 rounded-full hover:bg-win11Light-bg-tertiary dark:hover:bg-win11-bg-card-hover text-win11Light-text-secondary dark:text-win11-text-secondary"
+          tabIndex={-1}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Grid */}
