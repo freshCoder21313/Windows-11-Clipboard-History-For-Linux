@@ -12,7 +12,7 @@ const MAX_RECENT_SYMBOLS = 24
 export function useSymbolPicker() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  
+
   const [recentSymbols, setRecentSymbols] = useState<SymbolItem[]>(() => {
     try {
       const stored = localStorage.getItem(RECENT_SYMBOLS_KEY)
@@ -35,15 +35,12 @@ export function useSymbolPicker() {
   // Paste symbol
   const pasteSymbol = useCallback(async (symbol: SymbolItem) => {
     try {
-      // Use the generic paste_emoji command if it works for any char, or fallback to clipboard write
-      // We'll try paste_emoji as it likely pastes the char. If not, we might need a specific command.
-      // However, usually paste_emoji just inserts text.
-      // Let's assume 'paste_emoji' works for characters as it takes 'char'.
-      await invoke('paste_emoji', { char: symbol.char })
+      // Use the generic paste_text command
+      await invoke('paste_text', { text: symbol.char, itemType: 'symbol' })
 
       // Update recent
-      setRecentSymbols(prev => {
-        const filtered = prev.filter(s => s.char !== symbol.char)
+      setRecentSymbols((prev) => {
+        const filtered = prev.filter((s) => s.char !== symbol.char)
         const newRecent = [symbol, ...filtered].slice(0, MAX_RECENT_SYMBOLS)
         localStorage.setItem(RECENT_SYMBOLS_KEY, JSON.stringify(newRecent))
         return newRecent
