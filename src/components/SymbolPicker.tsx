@@ -193,6 +193,7 @@ export function SymbolPicker({ isDark, opacity }: SymbolPickerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const gridRef = useGridRef(null)
   const recentGridRef = useRef<HTMLDivElement>(null)
+  const mainGridContainerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
 
   // Roving tabindex state for recent symbols
@@ -473,6 +474,8 @@ export function SymbolPicker({ isDark, opacity }: SymbolPickerProps) {
         e.preventDefault()
         e.stopPropagation()
         setMainFocusedIndex(newIndex)
+
+        // Scroll the grid to show the focused item
         if (gridRef.current) {
           const targetRow = Math.floor(newIndex / columnCount)
           const targetCol = newIndex % columnCount
@@ -483,6 +486,15 @@ export function SymbolPicker({ isDark, opacity }: SymbolPickerProps) {
             columnAlign: 'smart',
           })
         }
+
+        // Focus the new element after a small delay to allow scroll
+        setTimeout(() => {
+          const container = mainGridContainerRef.current
+          if (container) {
+            const button = container.querySelector(`[data-main-index="${newIndex}"]`) as HTMLElement
+            button?.focus()
+          }
+        }, 10)
       }
     },
     [filteredSymbols, handleSelect, columnCount, gridRef]
@@ -599,6 +611,7 @@ export function SymbolPicker({ isDark, opacity }: SymbolPickerProps) {
           </div>
         ) : (
           <div 
+             ref={mainGridContainerRef}
              role="grid"
              aria-label="Symbol grid"
              style={{ height: gridHeight }}

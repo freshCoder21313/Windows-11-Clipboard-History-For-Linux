@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useLayoutEffect, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import { SearchBar } from './SearchBar'
@@ -21,6 +21,43 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
   const [categoryFocusedIndex, setCategoryFocusedIndex] = useState(0)
   const [hoveredKaomoji, setHoveredKaomoji] = useState<{ text: string; category: string } | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Grid keyboard navigation state
+  const [gridFocusedIndex, setGridFocusedIndex] = useState(0)
+  const gridContainerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [columnCount, setColumnCount] = useState(2)
+
+  // Calculate column count based on container width
+  useLayoutEffect(() => {
+    const updateColumnCount = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth
+        // Matches Tailwind breakpoints: grid-cols-2 sm:grid-cols-3 md:grid-cols-4
+        if (width >= 768) {
+          setColumnCount(4) // md breakpoint
+        } else if (width >= 640) {
+          setColumnCount(3) // sm breakpoint
+        } else {
+          setColumnCount(2) // default
+        }
+      }
+    }
+
+    updateColumnCount()
+    const observer = new ResizeObserver(updateColumnCount)
+    if (containerRef.current) {
+      observer.observe(containerRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  // Reset grid focus when search or category changes
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGridFocusedIndex(0)
+  }, [searchQuery, selectedCategory])
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -124,6 +161,76 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
     []
   )
 
+  // Keyboard navigation for kaomoji grid
+  const handleGridKeyDown = useCallback(
+    (e: React.KeyboardEvent, currentIndex: number) => {
+      if (kaomojis.length === 0) return
+
+      let newIndex = currentIndex
+      let handled = false
+
+      switch (e.key) {
+        case 'ArrowRight':
+          if (currentIndex < kaomojis.length - 1) {
+            newIndex = currentIndex + 1
+            handled = true
+          }
+          break
+        case 'ArrowLeft':
+          if (currentIndex > 0) {
+            newIndex = currentIndex - 1
+            handled = true
+          }
+          break
+        case 'ArrowDown': {
+          const nextRowIndex = currentIndex + columnCount
+          if (nextRowIndex < kaomojis.length) {
+            newIndex = nextRowIndex
+            handled = true
+          }
+          break
+        }
+        case 'ArrowUp': {
+          const prevRowIndex = currentIndex - columnCount
+          if (prevRowIndex >= 0) {
+            newIndex = prevRowIndex
+            handled = true
+          }
+          break
+        }
+        case 'Home':
+          newIndex = 0
+          handled = true
+          break
+        case 'End':
+          newIndex = kaomojis.length - 1
+          handled = true
+          break
+        case 'Enter':
+        case ' ':
+          e.preventDefault()
+          if (kaomojis[currentIndex]) {
+            handlePaste(kaomojis[currentIndex].text)
+          }
+          return
+      }
+
+      if (handled) {
+        e.preventDefault()
+        e.stopPropagation()
+        setGridFocusedIndex(newIndex)
+        
+        // Focus the new element
+        const container = gridContainerRef.current
+        if (container) {
+          const button = container.querySelector(`[data-kaomoji-index="${newIndex}"]`) as HTMLElement
+          button?.focus()
+        }
+      }
+    },
+    [kaomojis, columnCount, handlePaste]
+  )
+
   return (
     <div className="flex flex-col h-full overflow-hidden select-none">
       {/* Search */}
@@ -209,21 +316,32 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto p-3 pt-0 scrollbar-win11">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {kaomojis.map(item => (
+      <div ref={containerRef} className="flex-1 overflow-y-auto p-3 pt-0 scrollbar-win11">
+        <div 
+          ref={gridContainerRef}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"
+          role="grid"
+          aria-label="Kaomoji grid"
+        >
+            {kaomojis.map((item, index) => (
                 <button
                     key={item.id}
+                    data-kaomoji-index={index}
+                    tabIndex={index === gridFocusedIndex ? 0 : -1}
                     onClick={() => handlePaste(item.text)}
+                    onFocus={() => setGridFocusedIndex(index)}
+                    onKeyDown={(e) => handleGridKeyDown(e, index)}
                     onMouseEnter={() => setHoveredKaomoji({ text: item.text, category: item.category })}
                     onMouseLeave={() => setHoveredKaomoji(null)}
                     className={clsx(
                         "h-12 flex items-center justify-center rounded-md text-sm",
                         "hover:scale-105 transition-transform duration-100",
                         "border border-transparent hover:border-win11-border-subtle",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent",
                          isDark ? "hover:bg-win11-bg-card-hover" : "hover:bg-win11Light-bg-card-hover"
                     )}
                     title={item.category}
+                    aria-label={`${item.text} - ${item.category}`}
                 >
                     {item.text}
                 </button>
