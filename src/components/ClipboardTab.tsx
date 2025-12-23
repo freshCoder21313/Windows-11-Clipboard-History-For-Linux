@@ -76,29 +76,7 @@ export function ClipboardTab(props: {
     tabBarRef,
   })
   
-  // Focus management on window show
-  useEffect(() => {
-    const focusFirstItem = () => {
-      // Small delay to ensure the window is fully rendered and focused
-      setTimeout(() => {
-          if (filteredHistory.length > 0) {
-            setFocusedIndex(0)
-            historyItemRefs.current[0]?.focus()
-          }
-      }, 100)
-    }
 
-    // Listen to window-shown event
-    const unlistenWindowShown = listen('window-shown', focusFirstItem)
-
-    return () => {
-      unlistenWindowShown.then((unlisten) => unlisten())
-    }
-  }, [filteredHistory.length]) // Re-bind if history length changes? No, listener should be stable, but it relies on closure? 
-  // Actually, standard listener might capture stale state if not careful.
-  // Using a ref for history length or just relying on the fact that if it runs, it runs with current closure?
-  // The event listener is added ONCE. It captures the initial closure.
-  // WE NEED A REF for current history or recreate listener.
   
   
   // Let's use a ref for filteredHistory to access it inside the stable listener
