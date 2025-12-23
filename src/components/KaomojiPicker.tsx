@@ -19,6 +19,7 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [categoryFocusedIndex, setCategoryFocusedIndex] = useState(0)
+  const [hoveredKaomoji, setHoveredKaomoji] = useState<{ text: string; category: string } | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const scrollCategories = (direction: 'left' | 'right') => {
@@ -214,6 +215,8 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
                 <button
                     key={item.id}
                     onClick={() => handlePaste(item.text)}
+                    onMouseEnter={() => setHoveredKaomoji({ text: item.text, category: item.category })}
+                    onMouseLeave={() => setHoveredKaomoji(null)}
                     className={clsx(
                         "h-12 flex items-center justify-center rounded-md text-sm",
                         "hover:scale-105 transition-transform duration-100",
@@ -231,6 +234,28 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
                 </div>
             )}
         </div>
+      </div>
+
+      {/* Footer with hovered kaomoji info */}
+      <div
+        className={clsx(
+          'px-3 py-2 h-10 flex-shrink-0',
+          'border-t dark:border-win11-border-subtle border-win11Light-border',
+          'flex items-center gap-2'
+        )}
+      >
+        {hoveredKaomoji ? (
+          <>
+            <span className="text-xl">{hoveredKaomoji.text}</span>
+            <span className="text-xs dark:text-win11-text-secondary text-win11Light-text-secondary truncate">
+              {hoveredKaomoji.category}
+            </span>
+          </>
+        ) : (
+          <span className="text-xs dark:text-win11-text-tertiary text-win11Light-text-secondary">
+            Click to paste kaomoji
+          </span>
+        )}
       </div>
     </div>
   )
