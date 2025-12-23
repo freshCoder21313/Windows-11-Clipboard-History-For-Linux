@@ -99,7 +99,7 @@ jobs:
             ### Quick Installation (Recommended)
             
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/main/scripts/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/master/scripts/install.sh | bash
             ```
             
             ### Manual Installation

@@ -1,6 +1,6 @@
 #!/bin/bash
 # install.sh - Smart installer for Win11 Clipboard History
-# Usage: curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/main/scripts/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/master/scripts/install.sh | bash
 
 set -e
 
@@ -279,7 +279,7 @@ install_appimage() {
     # Download app icon for proper menu integration
     log "Downloading app icon..."
     curl -fsSL -o "$HOME/.local/share/icons/hicolor/128x128/apps/win11-clipboard-history.png" \
-        "https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/main/src-tauri/icons/128x128.png" 2>/dev/null || true
+        "https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/master/src-tauri/icons/128x128.png" 2>/dev/null || true
     
     # Wrapper script
     cat > "$HOME/.local/bin/win11-clipboard-history" << 'EOF'

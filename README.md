@@ -43,7 +43,7 @@ Built with 🦀 **Rust** + ⚡ **Tauri v2** + ⚛️ **React** + 🎨 **Tailwind
 This script automatically detects your distro and architecture (x86_64, ARM64), downloads the correct package, and sets up permissions.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/master/scripts/install.sh | bash
 ```
 
 > **Note:** The installer uses ACLs to grant immediate access to input devices — **no logout required!**
