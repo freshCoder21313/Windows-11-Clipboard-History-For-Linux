@@ -619,6 +619,14 @@ fn main() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
+            // Auto-migrate old autostart entries to use the wrapper script
+            // This fixes existing installations where autostart points to the binary directly
+            match autostart_manager::autostart_migrate() {
+                Ok(true) => println!("[Setup] Migrated autostart entry to use wrapper script"),
+                Ok(false) => {} // No migration needed
+                Err(e) => eprintln!("[Setup] Failed to migrate autostart: {}", e),
+            }
+
             let show = MenuItem::with_id(app, "show", "Show Clipboard", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
