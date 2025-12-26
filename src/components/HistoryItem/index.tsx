@@ -24,8 +24,6 @@ interface HistoryItemProps {
   enableUiPolish: boolean
 }
 
-
-
 export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function HistoryItem(
   {
     item,

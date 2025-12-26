@@ -15,24 +15,33 @@ export const smartActionService = {
 
     const trimmed = content.trim()
 
-    // More robust regex for URLs with basic domain validation
-    const urlRegex = /^https?:\/\/(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?::[/?#][^\s]*)?$/i
+    // 1. URL Detection
+    const urlRegex =
+      /^(?!mailto:)(?:(?:http|https|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[0-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))|localhost)(?::\d{2,5})?(?:(\/|\?|#)(?:[^\s]*[^.\s])?)?$/i
+
     if (urlRegex.test(trimmed)) {
-      actions.push({ id: 'open-link', label: 'Open Link', data: trimmed })
+      const normalizedUrl = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+
+      actions.push({
+        id: 'open-link',
+        label: 'Open Link',
+        data: normalizedUrl,
+      })
     }
 
-    // Email Detection
+    // 2. Email Detection
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (emailRegex.test(trimmed)) {
       actions.push({ id: 'compose-email', label: 'Compose Email', data: `mailto:${trimmed}` })
     }
 
-    // Color Detection (Hex)
+    // 3. Color Detection (Hex)
     const hexColorRegex = /^#([0-9A-F]{3}){1,2}$/i
     if (hexColorRegex.test(trimmed)) {
       actions.push({ id: 'color-preview', label: 'Color', data: trimmed })
     }
-    // Color Detection (RGB)
+
+    // 4. Color Detection (RGB)
     const rgbColorRegex =
       /^rgb\(\s*(25[0-5]|2[0-4]\d|1?\d?\d)\s*,\s*(25[0-5]|2[0-4]\d|1?\d?\d)\s*,\s*(25[0-5]|2[0-4]\d|1?\d?\d)\s*\)$/i
     if (rgbColorRegex.test(trimmed)) {
@@ -43,21 +52,10 @@ export const smartActionService = {
   },
 
   async execute(action: SmartAction) {
-    try {
-      switch (action.id) {
-        case 'open-link':
-          if (action.data) await open(action.data)
-          break
-        case 'compose-email':
-          if (action.data) await open(action.data)
-          break
-        // Color preview actions are passive; no additional execution is required
-        default:
-          console.warn('Unknown smart action', action.id)
+    if (action.id === 'open-link' || action.id === 'compose-email') {
+      if (action.data) {
+        await open(action.data)
       }
-    } catch (e) {
-      console.error('Failed to execute smart action', e)
-      throw e // Propagate error for UI handling
     }
   },
 }

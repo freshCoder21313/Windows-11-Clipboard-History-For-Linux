@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { Switch } from './Switch'
-import type { UserSettings } from '../types/clipboard'
+import type { UserSettings, BooleanSettingKey } from '../types/clipboard'
 
 const FEATURES = [
   {
@@ -14,10 +14,6 @@ const FEATURES = [
     desc: 'Enable animations and compact mode support.',
   },
 ] as const
-
-type BooleanSettingKey = {
-  [K in keyof UserSettings]: UserSettings[K] extends boolean ? K : never
-}[keyof UserSettings]
 
 export function FeaturesSection({
   settings,

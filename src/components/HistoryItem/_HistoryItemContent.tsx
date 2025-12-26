@@ -11,10 +11,8 @@ export function TextContent({
   effectiveCompact: boolean
 }) {
   if (item.content.type !== 'Text' && item.content.type !== 'RichText') return null
-  
-  const textToDisplay = item.content.type === 'Text' 
-    ? item.content.data 
-    : item.content.data.plain
+
+  const textToDisplay = item.content.type === 'Text' ? item.content.data : item.content.data.plain
 
   return (
     <p

@@ -62,3 +62,8 @@ export interface UserSettings {
   enable_ui_polish: boolean
   custom_kaomojis: CustomKaomoji[]
 }
+
+/** Helper type for boolean settings keys */
+export type BooleanSettingKey = {
+  [K in keyof UserSettings]: UserSettings[K] extends boolean ? K : never
+}[keyof UserSettings]

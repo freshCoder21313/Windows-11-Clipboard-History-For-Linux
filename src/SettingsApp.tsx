@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event'
 import { emit } from '@tauri-apps/api/event'
 import { clsx } from 'clsx'
 
-import type { UserSettings, CustomKaomoji } from './types/clipboard'
+import type { UserSettings, CustomKaomoji, BooleanSettingKey } from './types/clipboard'
 import { FeaturesSection } from './components/FeaturesSection'
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -18,10 +18,6 @@ const DEFAULT_SETTINGS: UserSettings = {
 }
 
 type ThemeMode = 'system' | 'dark' | 'light'
-
-type BooleanSettingKey = {
-  [K in keyof UserSettings]: UserSettings[K] extends boolean ? K : never
-}[keyof UserSettings]
 
 /**
  * Determines if dark mode should be active based on theme mode setting
@@ -584,11 +580,7 @@ function SettingsApp() {
         </section>
 
         {/* Features Section */}
-        <FeaturesSection
-          settings={settings}
-          isDark={isDark}
-          onToggle={handleToggle}
-        />
+        <FeaturesSection settings={settings} isDark={isDark} onToggle={handleToggle} />
 
         {/* Reset Section */}
         <div className="flex justify-end pt-2">
