@@ -21,6 +21,51 @@ REPO_OWNER="gustavosett"
 REPO_NAME="Windows-11-Clipboard-History-For-Linux"
 CLOUDSMITH_REPO="gustavosett/clipboard-manager"
 
+# Cleanup previous AppImage installation (prevents conflicts with package manager installs)
+cleanup_appimage_installation() {
+    local has_appimage=false
+    
+    # Check for AppImage installation artifacts
+    if [ -f "$HOME/.local/bin/win11-clipboard-history.AppImage" ] || \
+       [ -f "$HOME/.local/bin/win11-clipboard-history" ] || \
+       [ -f "$HOME/.local/share/applications/win11-clipboard-history.desktop" ]; then
+        has_appimage=true
+    fi
+    
+    if [ "$has_appimage" = true ]; then
+        log "Detected previous AppImage installation. Cleaning up..."
+        
+        # Kill any running AppImage instances
+        pkill -f "win11-clipboard-history.AppImage" 2>/dev/null || true
+
+        # Wait for processes to terminate, with a timeout
+        timeout=5
+        interval=1
+        elapsed=0
+        while pgrep -f "win11-clipboard-history.AppImage" >/dev/null 2>&1; do
+            if [ "$elapsed" -ge "$timeout" ]; then
+                warn "Timed out waiting for Win11 Clipboard History AppImage processes to terminate."
+                break
+            fi
+            sleep "$interval"
+            elapsed=$((elapsed + interval))
+        done
+        
+        # Remove AppImage files
+        rm -f "$HOME/.local/bin/win11-clipboard-history.AppImage" 2>/dev/null || true
+        rm -f "$HOME/.local/bin/win11-clipboard-history" 2>/dev/null || true
+        rm -f "$HOME/.local/share/applications/win11-clipboard-history.desktop" 2>/dev/null || true
+        rm -f "$HOME/.local/share/icons/hicolor"/*/apps/win11-clipboard-history.png 2>/dev/null || true
+        
+        # Update desktop database if available
+        if command -v update-desktop-database &>/dev/null; then
+            update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+        fi
+        
+        success "Previous AppImage installation cleaned up"
+    fi
+}
+
 # Detect the distribution
 detect_distro() {
     if [ -f /etc/os-release ]; then
@@ -78,8 +123,11 @@ check_webkit_compatibility() {
     fi
 }
 
-# Installation via package manage
+# Installation via package manager
 install_via_package_manager() {
+    # Clean up any previous AppImage installation to prevent PATH conflicts
+    cleanup_appimage_installation
+    
     # 1. Check for Arch Family (Arch, Manjaro, CachyOS, Endeavour, etc)
     if [[ "$SYSTEM_FAMILY_INFO" =~ "arch" ]] || command -v pacman &>/dev/null; then
         install_aur
@@ -144,6 +192,7 @@ install_deb() {
     
     log "Installing dependencies..."
     sudo apt-get install -y xclip wl-clipboard acl || true
+    sudo apt-get install -y libayatana-appindicator3-1 || sudo apt-get install -y libappindicator3-1 || true
     
     log "Installing .deb package..."
     yes | sudo apt-get install -y "./$FILE"
@@ -185,7 +234,7 @@ install_rpm() {
     chmod 644 "$FILE"
     
     log "Installing dependencies..."
-    sudo dnf install -y xclip wl-clipboard acl || true
+    sudo dnf install -y xclip wl-clipboard acl libayatana-appindicator-gtk3 || true
     
     log "Installing .rpm package..."
     sudo dnf install -y "./$FILE"
@@ -227,7 +276,7 @@ install_rpm_suse() {
     chmod 644 "$FILE"
     
     log "Installing dependencies..."
-    sudo zypper install -y xclip wl-clipboard acl || true
+    sudo zypper install -y xclip wl-clipboard acl libayatana-appindicator3-1 || true
     
     log "Installing .rpm package..."
     sudo zypper install -y "./$FILE"
@@ -284,19 +333,18 @@ install_appimage() {
     # Wrapper script
     cat > "$HOME/.local/bin/win11-clipboard-history" << 'EOF'
 #!/bin/bash
-exec env -i \
-    HOME="$HOME" USER="$USER" SHELL="$SHELL" \
-    DISPLAY="${DISPLAY:-:0}" XAUTHORITY="$XAUTHORITY" \
-    WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-    XDG_SESSION_TYPE="$XDG_SESSION_TYPE" XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \
-    XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
-    DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
-    PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin" \
-    LANG="${LANG:-en_US.UTF-8}" \
-    GDK_BACKEND="x11" \
-    GDK_SCALE="${GDK_SCALE:-1}" GDK_DPI_SCALE="${GDK_DPI_SCALE:-1}" \
-    NO_AT_BRIDGE=1 \
-    "$HOME/.local/bin/win11-clipboard-history.AppImage" "$@"
+# Clean up environment to avoid Snap/Flatpak library conflicts
+unset LD_LIBRARY_PATH
+unset LD_PRELOAD
+unset GTK_PATH
+unset GIO_MODULE_DIR
+
+export GDK_SCALE="${GDK_SCALE:-1}"
+export GDK_DPI_SCALE="${GDK_DPI_SCALE:-1}"
+export GDK_BACKEND="x11"
+export NO_AT_BRIDGE=1
+
+exec "$HOME/.local/bin/win11-clipboard-history.AppImage" "$@"
 EOF
     chmod +x "$HOME/.local/bin/win11-clipboard-history"
     
