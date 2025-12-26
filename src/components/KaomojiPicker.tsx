@@ -152,7 +152,7 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
 
   const handlePaste = useCallback(async (text: string) => {
     try {
-      await invoke('paste_text', { text, itemType: 'kaomoji' })
+      await invoke('paste_text', { text })
       // No need for toast or close_window here, backend handles it
     } catch (err) {
       console.error('Failed to paste kaomoji', err)

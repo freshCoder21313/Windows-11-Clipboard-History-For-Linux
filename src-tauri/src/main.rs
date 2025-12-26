@@ -138,12 +138,12 @@ async fn paste_item(app: AppHandle, state: State<'_, AppState>, id: String) -> R
 }
 
 #[tauri::command]
-async fn paste_emoji(
+async fn paste_text(
     app: AppHandle,
     state: State<'_, AppState>,
-    char: String,
+    text: String,
 ) -> Result<(), String> {
-    state.emoji_manager.lock().record_usage(&char);
+    state.emoji_manager.lock().record_usage(&text);
 
     // 1. Prepare Environment
     WindowController::hide(&app);
@@ -152,12 +152,12 @@ async fn paste_emoji(
     // 2. Set Clipboard & Mark
     {
         let mut manager = state.clipboard_manager.lock();
-        manager.mark_text_as_pasted(&char);
+        manager.mark_text_as_pasted(&text);
 
         use arboard::Clipboard;
         Clipboard::new()
             .map_err(|e| e.to_string())?
-            .set_text(&char)
+            .set_text(&text)
             .map_err(|e| e.to_string())?;
     }
 
@@ -810,7 +810,7 @@ fn main() {
             toggle_pin,
             paste_item,
             get_recent_emojis,
-            paste_emoji,
+            paste_text,
             paste_gif_from_url,
             finish_paste,
             set_mouse_state,
