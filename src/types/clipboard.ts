@@ -48,6 +48,7 @@ export interface UserSettings {
   theme_mode: ThemeMode
   dark_background_opacity: number
   light_background_opacity: number
+  enable_smart_actions: boolean
 
   enable_ui_polish: boolean
   custom_kaomojis: CustomKaomoji[]

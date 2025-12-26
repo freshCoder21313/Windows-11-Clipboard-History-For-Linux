@@ -48,7 +48,7 @@ export function useSymbolPicker() {
     } catch (err) {
       console.error('Failed to paste symbol:', err)
       // Fallback: write to clipboard and maybe warn user?
-      // For now assume paste_text works or fails silently.
+      // For now assume paste_emoji works or fails silently.
     }
   }, [])
 

@@ -20,13 +20,17 @@ pub struct UserSettings {
     pub light_background_opacity: f32,
 
     // --- Feature Flags ---
+    /// Enable Smart Actions (URL, Color, Email detection)
+    #[serde(default = "default_true")]
+    pub enable_smart_actions: bool,
+
     /// Enable UI Polish (Compact Mode capability)
     #[serde(default = "default_true")]
     pub enable_ui_polish: bool,
 
     // --- Custom Data ---
     /// User-defined Kaomojis
-    #[serde(default)]
+    #[serde(default = "Vec::new")]
     pub custom_kaomojis: Vec<CustomKaomoji>,
 }
 
@@ -48,7 +52,7 @@ impl Default for UserSettings {
             theme_mode: "system".to_string(),
             dark_background_opacity: 0.70,
             light_background_opacity: 0.70,
-
+            enable_smart_actions: true,
             enable_ui_polish: true,
             custom_kaomojis: Vec::new(),
         }

@@ -33,11 +33,23 @@ export function ClipboardTab(props: {
     deleteItem,
     togglePin,
     onPaste,
-
+    settings,
     tabBarRef,
   } = props
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [isRegexMode, setIsRegexMode] = useState(false)
+
+  const [isCompact, setIsCompact] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('clipboard-history-compact-mode') === 'true'
+    }
+    return false
+  })
+
+  useEffect(() => {
+    localStorage.setItem('clipboard-history-compact-mode', String(isCompact))
+  }, [isCompact])
 
   const [focusedIndex, setFocusedIndex] = useState(0)
 
@@ -50,9 +62,20 @@ export function ClipboardTab(props: {
 
     return history.filter((item) => {
       if (item.content.type !== 'Text') return false
-      return item.content.data.toLowerCase().includes(searchQuery.toLowerCase())
+
+      try {
+        if (isRegexMode) {
+          const regex = new RegExp(searchQuery, 'i')
+          return regex.test(item.content.data)
+        } else {
+          return item.content.data.toLowerCase().includes(searchQuery.toLowerCase())
+        }
+      } catch {
+        // Invalid regex
+        return false
+      }
     })
-  }, [history, searchQuery])
+  }, [history, searchQuery, isRegexMode])
 
   // Keyboard navigation
   useHistoryKeyboardNavigation({
@@ -104,6 +127,8 @@ export function ClipboardTab(props: {
         itemCount={filteredHistory.length}
         isDark={isDark}
         tertiaryOpacity={tertiaryOpacity}
+        isCompact={isCompact}
+        onToggleCompact={() => setIsCompact(!isCompact)}
       />
       {/* Search Bar for Clipboard & Favorites */}
       <div className="px-3 pb-2 pt-1">
@@ -113,6 +138,8 @@ export function ClipboardTab(props: {
           isDark={isDark}
           opacity={secondaryOpacity}
           placeholder="Search history..."
+          isRegex={isRegexMode}
+          onToggleRegex={() => setIsRegexMode(!isRegexMode)}
           onClear={() => setSearchQuery('')}
         />
       </div>
@@ -145,6 +172,9 @@ export function ClipboardTab(props: {
               onFocus={() => setFocusedIndex(index)}
               isDark={isDark}
               secondaryOpacity={secondaryOpacity}
+              isCompact={isCompact}
+              enableSmartActions={settings.enable_smart_actions}
+              enableUiPolish={settings.enable_ui_polish}
             />
           ))}
         </div>

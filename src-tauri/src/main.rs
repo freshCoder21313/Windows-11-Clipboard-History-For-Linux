@@ -12,6 +12,7 @@ use tauri::{
     AppHandle, Emitter, Manager, Monitor, PhysicalPosition, PhysicalSize, State, WebviewWindow,
     WindowEvent,
 };
+use win11_clipboard_history_lib::autostart_manager;
 use win11_clipboard_history_lib::clipboard_manager::{ClipboardItem, ClipboardManager};
 use win11_clipboard_history_lib::config_manager::{resolve_window_position, ConfigManager};
 use win11_clipboard_history_lib::emoji_manager::{EmojiManager, EmojiUsage};
@@ -19,8 +20,19 @@ use win11_clipboard_history_lib::emoji_manager::{EmojiManager, EmojiUsage};
 use win11_clipboard_history_lib::focus_manager::x11_robust_activate;
 use win11_clipboard_history_lib::focus_manager::{restore_focused_window, save_focused_window};
 use win11_clipboard_history_lib::input_simulator::simulate_paste_keystroke;
+use win11_clipboard_history_lib::permission_checker;
 use win11_clipboard_history_lib::session::is_wayland;
+use win11_clipboard_history_lib::shortcut_setup;
 use win11_clipboard_history_lib::user_settings::{UserSettings, UserSettingsManager};
+
+/// Global flag to track if we started in background mode
+/// This is used to block the initial window show
+static STARTED_IN_BACKGROUND: AtomicBool = AtomicBool::new(false);
+
+/// Global flag indicating whether the initial show is allowed
+/// While false, background mode will still hide the window on focus
+/// After the first user toggle, this is set to true to allow normal show/hide behavior
+static INITIAL_SHOW_ALLOWED: AtomicBool = AtomicBool::new(false);
 
 /// Application state shared across all handlers
 pub struct AppState {
@@ -126,12 +138,18 @@ async fn paste_item(app: AppHandle, state: State<'_, AppState>, id: String) -> R
 }
 
 #[tauri::command]
-async fn paste_emoji(
+async fn paste_text(
     app: AppHandle,
     state: State<'_, AppState>,
-    char: String,
+    text: String,
+    item_type: Option<String>,
 ) -> Result<(), String> {
-    state.emoji_manager.lock().record_usage(&char);
+    // 0. Record usage if applicable
+    if let Some(t) = item_type.as_deref() {
+        if t == "emoji" {
+            state.emoji_manager.lock().record_usage(&text);
+        }
+    }
 
     // 1. Prepare Environment
     WindowController::hide(&app);
@@ -140,16 +158,16 @@ async fn paste_emoji(
     // 2. Set Clipboard & Mark
     {
         let mut manager = state.clipboard_manager.lock();
-        manager.mark_text_as_pasted(&char);
+        manager.mark_text_as_pasted(&text);
 
         use arboard::Clipboard;
         Clipboard::new()
             .map_err(|e| e.to_string())?
-            .set_text(&char)
+            .set_text(&text)
             .map_err(|e| e.to_string())?;
     }
 
-    // 3. Simulate Paste (Manual trigger required for emoji)
+    // 3. Simulate Paste
     simulate_paste_keystroke().map_err(|e| e.to_string())?;
 
     Ok(())
@@ -197,6 +215,18 @@ async fn finish_paste(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn copy_text_to_clipboard(_state: State<'_, AppState>, text: String) -> Result<(), String> {
+    // 1. Update Internal Manager (for history consistency, optional but good)
+    // Only write to the system clipboard; the history manager is updated by the clipboard watcher if enabled.
+
+    use arboard::Clipboard;
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(text).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 // --- Helper for Paste Logic ---
 
 struct PasteHelper;
@@ -219,6 +249,12 @@ struct WindowController;
 
 impl WindowController {
     pub fn toggle(app: &AppHandle) {
+        // User-initiated toggle - mark that we're now allowing shows
+        // This stops the background enforcer from hiding the window
+        if STARTED_IN_BACKGROUND.load(Ordering::SeqCst) {
+            INITIAL_SHOW_ALLOWED.store(true, Ordering::SeqCst);
+        }
+
         if let Some(window) = app.get_webview_window("main") {
             if window.is_visible().unwrap_or(false) {
                 let _ = window.hide();
@@ -565,6 +601,7 @@ fn main() {
         println!("OPTIONS:");
         println!("    -h, --help       Show this help message");
         println!("    -v, --version    Show version information");
+        println!("        --background Start minimized to system tray (for autostart)");
         println!("        --settings   Open settings window on startup");
         println!();
         println!("SHORTCUTS:");
@@ -573,8 +610,18 @@ fn main() {
         return;
     }
 
+    // Check if --background flag is present (start minimized to tray)
+    let start_in_background = args.iter().any(|arg| arg == "--background");
+    if start_in_background {
+        println!("[Startup] Starting in background mode (system tray only)");
+        STARTED_IN_BACKGROUND.store(true, Ordering::SeqCst);
+    }
+
     // Check if --settings flag is present (for first instance startup)
     let open_settings_on_start = args.iter().any(|arg| arg == "--settings");
+
+    // Clone for use in setup closure
+    let start_in_background_clone = start_in_background;
 
     win11_clipboard_history_lib::session::init();
 
@@ -591,6 +638,8 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        // Global shortcut plugin for cross-platform hotkeys
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         // Single Instance Plugin: When user triggers shortcut and app is already running,
         // the OS launches a new instance which signals the existing one to toggle
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -614,6 +663,23 @@ fn main() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
+            // FIRST THING: If started in background mode, immediately hide the main window
+            // This runs before anything else to prevent the window from appearing
+            if start_in_background_clone {
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let _ = main_window.hide();
+                    println!("[Setup] Immediately hiding main window for background mode");
+                }
+            }
+
+            // Auto-migrate old autostart entries to use the wrapper script
+            // This fixes existing installations where autostart points to the binary directly
+            match autostart_manager::autostart_migrate() {
+                Ok(true) => println!("[Setup] Migrated autostart entry to use wrapper script"),
+                Ok(false) => {} // No migration needed
+                Err(e) => eprintln!("[Setup] Failed to migrate autostart: {}", e),
+            }
+
             let show = MenuItem::with_id(app, "show", "Show Clipboard", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -621,8 +687,14 @@ fn main() {
 
             let icon = Image::from_bytes(include_bytes!("../icons/icon.png")).unwrap();
 
+            // Get temp directory for tray icon (avoids permission issues with XDG_RUNTIME_DIR)
+            let temp_dir = std::env::temp_dir().join("win11-clipboard-history");
+            std::fs::create_dir_all(&temp_dir).ok();
+
             let _tray = TrayIconBuilder::new()
                 .icon(icon)
+                .tooltip("Clipboard History")
+                .temp_dir_path(temp_dir)
                 .menu(&menu)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
@@ -654,6 +726,20 @@ fn main() {
             let app_handle_for_event = app_handle.clone();
 
             main_window.on_window_event(move |event| match event {
+                // Block any window show attempts when started in background mode
+                // This catches cases where GTK/Tauri automatically shows the window
+                WindowEvent::Focused(true) => {
+                    // Load both flags atomically with SeqCst to avoid race conditions
+                    let started_in_background = STARTED_IN_BACKGROUND.load(Ordering::SeqCst);
+                    let initial_show_allowed = INITIAL_SHOW_ALLOWED.load(Ordering::SeqCst);
+
+                    // If started in background and initial show hasn't been allowed yet,
+                    // immediately hide the window
+                    if started_in_background && !initial_show_allowed {
+                        println!("[WindowController] Background mode: intercepted focus, hiding window");
+                        let _ = w_clone.hide();
+                    }
+                }
                 WindowEvent::Focused(false) => {
                     let state = w_clone.state::<AppState>();
                     if state.is_mouse_inside.load(Ordering::Relaxed) {
@@ -699,6 +785,40 @@ fn main() {
                 SettingsController::show(&app_handle);
             }
 
+            // If --background flag was passed, ensure the main window stays hidden
+            // This is the primary mechanism for starting minimized to tray
+            // Background mode: spawn enforcer thread as fallback
+            // This catches cases where something shows the window after our initial hide
+            if start_in_background_clone {
+                if let Some(main_window) = app.get_webview_window("main") {
+                    // Spawn a background task that keeps checking and hiding the window
+                    // for the first few seconds, in case something shows it after we hide it
+                    let window_clone = main_window.clone();
+                    std::thread::spawn(move || {
+                        for i in 0..10 {
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+
+                            // User has already triggered a toggle, stop blocking
+                            if INITIAL_SHOW_ALLOWED.load(Ordering::SeqCst) {
+                                break;
+                            }
+
+                            // Check if window still exists and is visible, then hide it
+                            // Use unwrap_or(false) to safely handle cases where window was destroyed
+                            match window_clone.is_visible() {
+                                Ok(true) => {
+                                    println!("[Startup] Background enforcer #{}: window was visible, hiding again", i + 1);
+                                    let _ = window_clone.hide();
+                                }
+                                Ok(false) => {} // Window exists but is hidden, nothing to do
+                                Err(_) => break, // Window was destroyed, stop the enforcer
+                            }
+                        }
+                        println!("[Startup] Background enforcer finished");
+                    });
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -707,14 +827,29 @@ fn main() {
             delete_item,
             toggle_pin,
             paste_item,
+            paste_text,
             get_recent_emojis,
-            paste_emoji,
             paste_gif_from_url,
             finish_paste,
             set_mouse_state,
             get_user_settings,
             set_user_settings,
             is_settings_window_visible,
+            copy_text_to_clipboard,
+            permission_checker::check_permissions,
+            permission_checker::fix_permissions_now,
+            permission_checker::is_first_run,
+            permission_checker::mark_first_run_complete,
+            permission_checker::reset_first_run,
+            shortcut_setup::get_desktop_environment,
+            shortcut_setup::register_de_shortcut,
+            shortcut_setup::check_shortcut_tools,
+            shortcut_setup::detect_conflicts,
+            shortcut_setup::resolve_conflicts,
+            autostart_manager::autostart_enable,
+            autostart_manager::autostart_disable,
+            autostart_manager::autostart_is_enabled,
+            autostart_manager::autostart_migrate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

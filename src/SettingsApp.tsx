@@ -2,22 +2,26 @@ import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow, Window } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
+import { emit } from '@tauri-apps/api/event'
 import { clsx } from 'clsx'
 
-/** User settings type matching the Rust struct */
-interface UserSettings {
-  theme_mode: 'system' | 'dark' | 'light'
-  dark_background_opacity: number
-  light_background_opacity: number
-}
+import type { UserSettings, CustomKaomoji } from './types/clipboard'
+import { FeaturesSection } from './components/FeaturesSection'
 
 const DEFAULT_SETTINGS: UserSettings = {
   theme_mode: 'system',
   dark_background_opacity: 0.7,
   light_background_opacity: 0.7,
+  enable_smart_actions: true,
+  enable_ui_polish: true,
+  custom_kaomojis: [],
 }
 
 type ThemeMode = 'system' | 'dark' | 'light'
+
+type BooleanSettingKey = {
+  [K in keyof UserSettings]: UserSettings[K] extends boolean ? K : never
+}[keyof UserSettings]
 
 /**
  * Determines if dark mode should be active based on theme mode setting
@@ -125,6 +129,9 @@ function SettingsApp() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
+  // Custom Kaomoji State
+  const [newKaomoji, setNewKaomoji] = useState('')
+
   // Apply theme to settings window itself
   const isDark = useThemeMode(settings.theme_mode)
 
@@ -189,11 +196,21 @@ function SettingsApp() {
     }
   }, [])
 
+  // Centralized settings update helper
+  const updateSettings = useCallback(
+    (partial: Partial<UserSettings>) => {
+      setSettings((prev) => {
+        const next = { ...prev, ...partial }
+        saveSettings(next)
+        return next
+      })
+    },
+    [saveSettings]
+  )
+
   // Handle theme mode change
   const handleThemeModeChange = (mode: ThemeMode) => {
-    const newSettings = { ...settings, theme_mode: mode }
-    setSettings(newSettings)
-    saveSettings(newSettings)
+    updateSettings({ theme_mode: mode })
   }
 
   // Handle dark opacity change (visual only, no disk I/O)
@@ -210,6 +227,35 @@ function SettingsApp() {
   const commitOpacityChange = () => {
     saveSettings(settings)
   }
+
+  // Handle Feature Toggles
+  const handleToggle = (key: BooleanSettingKey) => {
+    // Type safe toggle
+    updateSettings({ [key]: !settings[key] } as Partial<UserSettings>)
+  }
+
+  // Custom Kaomoji Handlers
+  const addCustomKaomoji = useCallback(() => {
+    const val = newKaomoji.trim()
+    if (!val) return
+
+    const newItem: CustomKaomoji = {
+      text: val,
+      category: 'Custom',
+      keywords: ['custom'],
+    }
+
+    updateSettings({ custom_kaomojis: [...settings.custom_kaomojis, newItem] })
+    setNewKaomoji('')
+  }, [newKaomoji, settings.custom_kaomojis, updateSettings])
+
+  const removeCustomKaomojiAt = useCallback(
+    (index: number) => {
+      const newList = settings.custom_kaomojis.filter((_, i) => i !== index)
+      updateSettings({ custom_kaomojis: newList })
+    },
+    [settings.custom_kaomojis, updateSettings]
+  )
 
   // Handle window close
   const handleClose = async () => {
@@ -446,12 +492,114 @@ function SettingsApp() {
           </div>
         </section>
 
+        {/* Custom Kaomoji Section */}
+        <section
+          className={clsx(
+            'rounded-xl border shadow-sm overflow-hidden',
+            isDark ? 'bg-win11-bg-secondary border-white/5' : 'bg-white border-gray-200/60'
+          )}
+        >
+          <div className="p-6 border-b border-inherit">
+            <h2 className="text-base font-semibold mb-1">Custom Kaomoji</h2>
+            <p className={clsx('text-xs', isDark ? 'text-gray-400' : 'text-gray-500')}>
+              Add your own personal kaomojis to the collection
+            </p>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Add New */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newKaomoji}
+                onChange={(e) => setNewKaomoji(e.target.value)}
+                placeholder="( ˘ ³˘)♥"
+                className={clsx(
+                  'flex-1 px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-win11-bg-accent/50 transition-all',
+                  isDark
+                    ? 'bg-white/5 border-white/10 text-white placeholder-gray-500'
+                    : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'
+                )}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    addCustomKaomoji()
+                  }
+                }}
+              />
+              <button
+                onClick={addCustomKaomoji}
+                className="px-4 py-2 bg-win11-bg-accent text-white rounded-md text-sm font-medium hover:opacity-90 active:scale-95 transition-all"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* List */}
+            {settings.custom_kaomojis.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                {settings.custom_kaomojis.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={clsx(
+                      'group flex items-center justify-between px-3 py-2 rounded-md border transition-colors',
+                      isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'
+                    )}
+                  >
+                    <span className="font-mono text-sm truncate mr-2" title={item.text}>
+                      {item.text}
+                    </span>
+                    <button
+                      onClick={() => removeCustomKaomojiAt(idx)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-500/10 rounded transition-all"
+                      title="Delete"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                className={clsx(
+                  'text-center py-4 text-sm italic opacity-60',
+                  isDark ? 'text-gray-500' : 'text-gray-400'
+                )}
+              >
+                No custom kaomojis yet
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <FeaturesSection 
+            settings={settings}
+            isDark={isDark}
+            onToggle={handleToggle}
+        />
+
         {/* Reset Section */}
         <div className="flex justify-end pt-2">
           <button
-            onClick={() => {
+            onClick={async () => {
               setSettings(DEFAULT_SETTINGS)
-              saveSettings(DEFAULT_SETTINGS)
+              await saveSettings(DEFAULT_SETTINGS)
+              // Reset first run state to show setup wizard
+              await invoke('reset_first_run')
+              // Emit event to show wizard in main window
+              await emit('show-setup-wizard')
             }}
             className={clsx(
               'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all',

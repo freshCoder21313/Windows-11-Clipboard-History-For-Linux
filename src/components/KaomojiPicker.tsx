@@ -265,7 +265,7 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
             isActive={selectedCategory === null}
             onClick={() => setSelectedCategory(null)}
             tabIndex={categoryFocusedIndex === 0 ? 0 : -1}
-            onKeyDown={(e: React.KeyboardEvent) => handleCategoryKeyDown(e, 0)}
+            onKeyDown={(e) => handleCategoryKeyDown(e, 0)}
             onFocus={() => setCategoryFocusedIndex(0)}
             data-category-index={0}
             isDark={isDark}
@@ -277,7 +277,7 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
               isActive={selectedCategory === 'Custom'}
               onClick={() => setSelectedCategory('Custom')}
               tabIndex={categoryFocusedIndex === 1 ? 0 : -1}
-              onKeyDown={(e: React.KeyboardEvent) => handleCategoryKeyDown(e, 1)}
+              onKeyDown={(e) => handleCategoryKeyDown(e, 1)}
               onFocus={() => setCategoryFocusedIndex(1)}
               data-category-index={1}
               isDark={isDark}
@@ -296,7 +296,7 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
                 isActive={selectedCategory === cat}
                 onClick={() => setSelectedCategory(cat)}
                 tabIndex={categoryFocusedIndex === actualIndex ? 0 : -1}
-                onKeyDown={(e: React.KeyboardEvent) => handleCategoryKeyDown(e, actualIndex)}
+                onKeyDown={(e) => handleCategoryKeyDown(e, actualIndex)}
                 onFocus={() => setCategoryFocusedIndex(actualIndex)}
                 data-category-index={actualIndex}
                 isDark={isDark}
