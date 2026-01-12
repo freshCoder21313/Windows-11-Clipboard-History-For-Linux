@@ -98,6 +98,22 @@ impl Default for UserSettings {
 }
 
 impl UserSettings {
+    pub fn auto_delete_interval_in_minutes(&self) -> u64 {
+        if self.auto_delete_interval == 0 {
+            return 0;
+        }
+
+        let base = self.auto_delete_interval;
+
+        match self.auto_delete_unit.as_str() {
+            "minutes" => base,
+            "hours" => base.saturating_mul(60),
+            "days" => base.saturating_mul(60).saturating_mul(24),
+            "weeks" => base.saturating_mul(60).saturating_mul(24).saturating_mul(7),
+            _ => base.saturating_mul(60),
+        }
+    }
+
     /// Validates and clamps opacity values to the valid range [0.0, 1.0]
     pub fn validate(&mut self) {
         self.dark_background_opacity = self.dark_background_opacity.clamp(0.0, 1.0);

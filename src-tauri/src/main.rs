@@ -314,13 +314,7 @@ impl WindowController {
                 // Immediate cleanup of outdated items before showing
                 if let Some(state) = app.try_state::<AppState>() {
                     let settings = UserSettingsManager::new().load();
-                    let interval_in_minutes = match settings.auto_delete_unit.as_str() {
-                        "minutes" => settings.auto_delete_interval,
-                        "hours" => settings.auto_delete_interval * 60,
-                        "days" => settings.auto_delete_interval * 60 * 24,
-                        "weeks" => settings.auto_delete_interval * 60 * 24 * 7,
-                        _ => settings.auto_delete_interval * 60,
-                    };
+                    let interval_in_minutes = settings.auto_delete_interval_in_minutes();
 
                     let mut manager = state.clipboard_manager.lock();
                     if manager.cleanup_old_items(interval_in_minutes) {
@@ -622,19 +616,11 @@ fn start_clipboard_watcher(app: AppHandle, clipboard_manager: Arc<Mutex<Clipboar
             if cleanup_counter >= 60 {
                 cleanup_counter = 0;
                 let settings = UserSettingsManager::new().load();
-                if settings.auto_delete_interval > 0 {
-                    let interval_in_minutes = match settings.auto_delete_unit.as_str() {
-                        "minutes" => settings.auto_delete_interval,
-                        "hours" => settings.auto_delete_interval * 60,
-                        "days" => settings.auto_delete_interval * 60 * 24,
-                        "weeks" => settings.auto_delete_interval * 60 * 24 * 7,
-                        _ => settings.auto_delete_interval * 60,
-                    };
+                let interval_in_minutes = settings.auto_delete_interval_in_minutes();
 
-                    if manager.cleanup_old_items(interval_in_minutes) {
-                        println!("[Watcher] Background cleanup triggered sync");
-                        let _ = app.emit("history-cleared", ());
-                    }
+                if interval_in_minutes > 0 && manager.cleanup_old_items(interval_in_minutes) {
+                    println!("[Watcher] Background cleanup triggered sync");
+                    let _ = app.emit("history-cleared", ());
                 }
             }
 
