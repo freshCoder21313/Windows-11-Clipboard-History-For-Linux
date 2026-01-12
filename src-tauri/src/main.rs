@@ -310,6 +310,24 @@ impl WindowController {
                 if let Some(tab_name) = tab {
                     let _ = app.emit("switch-tab", tab_name);
                 }
+
+                // Immediate cleanup of outdated items before showing
+                if let Some(state) = app.try_state::<AppState>() {
+                    let settings = UserSettingsManager::new().load();
+                    let interval_in_minutes = match settings.auto_delete_unit.as_str() {
+                        "minutes" => settings.auto_delete_interval,
+                        "hours" => settings.auto_delete_interval * 60,
+                        "days" => settings.auto_delete_interval * 60 * 24,
+                        "weeks" => settings.auto_delete_interval * 60 * 24 * 7,
+                        _ => settings.auto_delete_interval * 60,
+                    };
+
+                    let mut manager = state.clipboard_manager.lock();
+                    if manager.cleanup_old_items(interval_in_minutes) {
+                        let _ = app.emit("history-cleared", ());
+                    }
+                }
+
                 Self::position_and_show(&window, app);
             }
         }
@@ -592,10 +610,33 @@ fn start_clipboard_watcher(app: AppHandle, clipboard_manager: Arc<Mutex<Clipboar
     std::thread::spawn(move || {
         let mut last_text_hash: Option<u64> = None;
         let mut last_image_hash: Option<u64> = None;
+        let mut cleanup_counter = 0;
 
         loop {
             std::thread::sleep(Duration::from_millis(500));
+            cleanup_counter += 1;
+
             let mut manager = clipboard_manager.lock();
+
+            // Background cleanup every ~30 seconds (60 * 500ms)
+            if cleanup_counter >= 60 {
+                cleanup_counter = 0;
+                let settings = UserSettingsManager::new().load();
+                if settings.auto_delete_interval > 0 {
+                    let interval_in_minutes = match settings.auto_delete_unit.as_str() {
+                        "minutes" => settings.auto_delete_interval,
+                        "hours" => settings.auto_delete_interval * 60,
+                        "days" => settings.auto_delete_interval * 60 * 24,
+                        "weeks" => settings.auto_delete_interval * 60 * 24 * 7,
+                        _ => settings.auto_delete_interval * 60,
+                    };
+
+                    if manager.cleanup_old_items(interval_in_minutes) {
+                        println!("[Watcher] Background cleanup triggered sync");
+                        let _ = app.emit("history-cleared", ());
+                    }
+                }
+            }
 
             // Text
             if let Ok(text) = manager.get_current_text() {

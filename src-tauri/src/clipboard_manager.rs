@@ -532,6 +532,41 @@ impl ClipboardManager {
         Some(item_clone)
     }
 
+    pub fn cleanup_old_items(&mut self, interval_minutes: u64) -> bool {
+        if interval_minutes == 0 {
+            return false;
+        }
+
+        let now = Utc::now();
+        let mut changed = false;
+
+        // Use a more robust time comparison
+        self.history.retain(|item| {
+            if item.pinned {
+                return true;
+            }
+
+            let age_seconds = now.signed_duration_since(item.timestamp).num_seconds();
+            let interval_seconds = (interval_minutes * 60) as i64;
+            let keep = age_seconds < interval_seconds;
+
+            if !keep {
+                changed = true;
+                println!(
+                    "[ClipboardManager] Auto-deleting old item: {} (age: {}s, limit: {}s)",
+                    item.id, age_seconds, interval_seconds
+                );
+            }
+            keep
+        });
+
+        if changed {
+            self.save_history();
+        }
+
+        changed
+    }
+
     // --- Paste Logic ---
 
     pub fn mark_as_pasted(&mut self, item: &ClipboardItem) {

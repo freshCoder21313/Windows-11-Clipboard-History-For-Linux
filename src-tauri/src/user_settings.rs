@@ -33,6 +33,14 @@ pub struct UserSettings {
     #[serde(default = "default_max_history_size")]
     pub max_history_size: usize,
 
+    /// Auto-delete interval value (0 means disabled)
+    #[serde(default = "default_zero")]
+    pub auto_delete_interval: u64,
+
+    /// Auto-delete interval unit ("minutes", "hours", "days", "weeks")
+    #[serde(default = "default_unit")]
+    pub auto_delete_unit: String,
+
     // --- Custom Data ---
     /// User-defined Kaomojis
     #[serde(default)]
@@ -64,6 +72,14 @@ fn default_ui_scale() -> f32 {
     1.0
 }
 
+fn default_zero() -> u64 {
+    0
+}
+
+fn default_unit() -> String {
+    "hours".to_string()
+}
+
 impl Default for UserSettings {
     fn default() -> Self {
         Self {
@@ -73,6 +89,8 @@ impl Default for UserSettings {
             enable_smart_actions: true,
             enable_ui_polish: true,
             max_history_size: default_max_history_size(),
+            auto_delete_interval: 0,
+            auto_delete_unit: "hours".to_string(),
             custom_kaomojis: Vec::new(),
             ui_scale: default_ui_scale(),
         }
@@ -95,6 +113,11 @@ impl UserSettings {
 
         // Validate ui_scale (0.5 to 2.0)
         self.ui_scale = self.ui_scale.clamp(0.5, 2.0);
+
+        // Validate auto_delete_unit
+        if !["minutes", "hours", "days", "weeks"].contains(&self.auto_delete_unit.as_str()) {
+            self.auto_delete_unit = "hours".to_string();
+        }
     }
 }
 
