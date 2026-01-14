@@ -280,7 +280,7 @@ impl ClipboardManager {
         }
     }
 
-    fn save_history(&self) {
+    pub fn save_history(&self) {
         match serde_json::to_string_pretty(&self.history) {
             Ok(content) => {
                 if let Some(parent) = self.persistence_path.parent() {

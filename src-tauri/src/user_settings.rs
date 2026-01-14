@@ -110,7 +110,7 @@ impl UserSettings {
             "hours" => base.saturating_mul(60),
             "days" => base.saturating_mul(60).saturating_mul(24),
             "weeks" => base.saturating_mul(60).saturating_mul(24).saturating_mul(7),
-            _ => base.saturating_mul(60),
+            _ => unreachable!("invalid auto_delete_unit: {}", self.auto_delete_unit),
         }
     }
 
