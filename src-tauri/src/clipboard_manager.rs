@@ -619,7 +619,7 @@ impl ClipboardManager {
                 self.last_pasted_text = Some(text.clone());
                 self.last_pasted_image_hash = None;
             }
-            ClipboardContent::RichText { plain, html } => {
+            ClipboardContent::RichText { plain, html: _ } => {
                 self.last_pasted_text = Some(plain.clone());
                 self.last_pasted_image_hash = None;
             }
@@ -644,8 +644,6 @@ impl ClipboardManager {
         self.mark_as_pasted(item);
 
         // 2. Write content to OS clipboard
-        let mut clipboard = get_system_clipboard()?;
-
         match &item.content {
             ClipboardContent::Text(text) => {
                 self.set_text_robust(text)?;
