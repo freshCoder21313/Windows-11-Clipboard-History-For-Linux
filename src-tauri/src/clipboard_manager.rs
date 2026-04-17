@@ -740,21 +740,21 @@ impl ClipboardManager {
         #[cfg(target_os = "linux")]
         {
             if crate::session::is_wayland() {
-                // wl-copy doesn't easily support multiple types in one go for text/html + text/plain
-                // efficiently without multiple processes, so we prioritize HTML then Plain.
-                let _ = self.set_clipboard_external("wl-copy", &["--type", "text/html"], html);
-                let _ = self.set_clipboard_external("wl-copy", &["--type", "text/plain"], plain);
+                if let Ok(()) =
+                    self.set_clipboard_external("wl-copy", &["--type", "text/html"], html)
+                {
+                    let _ = self.set_text_robust(plain);
+                    return Ok(());
+                }
             } else {
-                let _ = self.set_clipboard_external(
+                if let Ok(()) = self.set_clipboard_external(
                     "xclip",
                     &["-selection", "clipboard", "-t", "text/html"],
                     html,
-                );
-                let _ = self.set_clipboard_external(
-                    "xclip",
-                    &["-selection", "clipboard", "-t", "text/plain"],
-                    plain,
-                );
+                ) {
+                    let _ = self.set_text_robust(plain);
+                    return Ok(());
+                }
             }
         }
 
