@@ -710,17 +710,22 @@ impl ClipboardManager {
     /// Robustly set text to clipboard using xclip/wl-copy on Linux if available,
     /// falling back to arboard. This fixes issues on distros like Kali Linux.
     pub fn set_text_robust(&self, text: &str) -> Result<(), String> {
-        if crate::session::is_wayland() {
-            if let Ok(()) = self.set_clipboard_external("wl-copy", &["--type", "text/plain"], text) {
-                return Ok(());
-            }
-        } else {
-            if let Ok(()) = self.set_clipboard_external(
-                "xclip",
-                &["-selection", "clipboard", "-t", "text/plain"],
-                text,
-            ) {
-                return Ok(());
+        #[cfg(target_os = "linux")]
+        {
+            if crate::session::is_wayland() {
+                if let Ok(()) =
+                    self.set_clipboard_external("wl-copy", &["--type", "text/plain"], text)
+                {
+                    return Ok(());
+                }
+            } else {
+                if let Ok(()) = self.set_clipboard_external(
+                    "xclip",
+                    &["-selection", "clipboard", "-t", "text/plain"],
+                    text,
+                ) {
+                    return Ok(());
+                }
             }
         }
 
@@ -732,23 +737,28 @@ impl ClipboardManager {
     /// Robustly set HTML to clipboard using xclip/wl-copy on Linux if available,
     /// falling back to arboard.
     pub fn set_html_robust(&self, html: &str, plain: &str) -> Result<(), String> {
-        if crate::session::is_wayland() {
-            // wl-copy doesn't easily support multiple types in one go for text/html + text/plain
-            // efficiently without multiple processes, so we prioritize HTML.
-            if let Ok(()) = self.set_clipboard_external("wl-copy", &["--type", "text/html"], html) {
-                return Ok(());
-            }
-        } else {
-            if let Ok(()) = self.set_clipboard_external(
-                "xclip",
-                &["-selection", "clipboard", "-t", "text/html"],
-                html,
-            ) {
-                return Ok(());
+        #[cfg(target_os = "linux")]
+        {
+            if crate::session::is_wayland() {
+                // wl-copy doesn't easily support multiple types in one go for text/html + text/plain
+                // efficiently without multiple processes, so we prioritize HTML then Plain.
+                let _ = self.set_clipboard_external("wl-copy", &["--type", "text/html"], html);
+                let _ = self.set_clipboard_external("wl-copy", &["--type", "text/plain"], plain);
+            } else {
+                let _ = self.set_clipboard_external(
+                    "xclip",
+                    &["-selection", "clipboard", "-t", "text/html"],
+                    html,
+                );
+                let _ = self.set_clipboard_external(
+                    "xclip",
+                    &["-selection", "clipboard", "-t", "text/plain"],
+                    plain,
+                );
             }
         }
 
-        // Fallback to arboard
+        // Fallback to arboard (which handles multiple MIME types correctly)
         let mut clipboard = get_system_clipboard()?;
         clipboard
             .set_html(html, Some(plain))
@@ -756,8 +766,8 @@ impl ClipboardManager {
     }
 
     fn set_clipboard_external(&self, cmd: &str, args: &[&str], data: &str) -> Result<(), String> {
+        use std::io::{Read, Write};
         use std::process::{Command, Stdio};
-        use std::io::Write;
 
         let mut child = Command::new(cmd)
             .args(args)
@@ -778,7 +788,16 @@ impl ClipboardManager {
 
         match child.try_wait() {
             Ok(Some(status)) if !status.success() => {
-                Err(format!("{} exited with error", cmd))
+                let mut stderr = String::new();
+                if let Some(mut stderr_pipe) = child.stderr.take() {
+                    let _ = stderr_pipe.read_to_string(&mut stderr);
+                }
+                Err(format!(
+                    "{} exited with status {}. Stderr: {}",
+                    cmd,
+                    status,
+                    stderr.trim()
+                ))
             }
             Ok(_) => {
                 // If it's still running or exited successfully, we assume it worked.
