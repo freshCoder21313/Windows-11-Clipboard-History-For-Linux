@@ -713,15 +713,17 @@ impl ClipboardManager {
         #[cfg(target_os = "linux")]
         {
             if crate::session::is_wayland() {
-                if let Ok(()) =
-                    self.set_clipboard_external("wl-copy", &["--type", "text/plain"], text)
-                {
+                if let Ok(()) = self.set_clipboard_external(
+                    "wl-copy",
+                    &["--type", "text/plain;charset=utf-8"],
+                    text,
+                ) {
                     return Ok(());
                 }
             } else {
                 if let Ok(()) = self.set_clipboard_external(
                     "xclip",
-                    &["-selection", "clipboard", "-t", "text/plain"],
+                    &["-selection", "clipboard", "-t", "UTF8_STRING"],
                     text,
                 ) {
                     return Ok(());
